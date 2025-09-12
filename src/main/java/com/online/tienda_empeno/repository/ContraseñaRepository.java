@@ -6,5 +6,3 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface ContraseñaRepository extends JpaRepository<Contraseñas, Integer> { }
-
-
