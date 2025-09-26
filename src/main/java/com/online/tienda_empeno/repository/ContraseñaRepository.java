@@ -1,8 +1,8 @@
 package com.online.tienda_empeno.repository;
 
-import com.online.tienda_empeno.entity.Contraseñas;
+import com.online.tienda_empeno.entity.Contraseña;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 
-@Repository
-public interface ContraseñaRepository extends JpaRepository<Contraseñas, Integer> { }
+public interface ContraseñaRepository extends JpaRepository<Contraseña, Integer> {
+}
+
