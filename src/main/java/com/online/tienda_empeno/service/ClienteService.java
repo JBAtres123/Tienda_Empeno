@@ -6,7 +6,6 @@ import com.online.tienda_empeno.repository.*;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
-import java.util.Optional;
 
 @Service
 public class ClienteService {
@@ -14,6 +13,7 @@ public class ClienteService {
     private final DireccionesRepository direccionesRepository;
     private final CiudadRepository ciudadRepository;
     private final ClienteRepository clienteRepository;
+    private final AdministradorRepository administradorRepository;
     private final TipoDeDocumentoRepository tipoDeDocumentoRepository;
     private final ContraseñaRepository contraseñaRepository;
     private final TipoUsuarioRepository tipoUsuarioRepository;
@@ -21,26 +21,26 @@ public class ClienteService {
     public ClienteService(DireccionesRepository direccionesRepository,
                           CiudadRepository ciudadRepository,
                           ClienteRepository clienteRepository,
+                          AdministradorRepository administradorRepository,
                           TipoDeDocumentoRepository tipoDeDocumentoRepository,
                           ContraseñaRepository contraseñaRepository,
                           TipoUsuarioRepository tipoUsuarioRepository) {
         this.direccionesRepository = direccionesRepository;
         this.ciudadRepository = ciudadRepository;
         this.clienteRepository = clienteRepository;
+        this.administradorRepository = administradorRepository;
         this.tipoDeDocumentoRepository = tipoDeDocumentoRepository;
         this.contraseñaRepository = contraseñaRepository;
         this.tipoUsuarioRepository = tipoUsuarioRepository;
     }
 
-    // ---- Paso 1: Guardar dirección y devolver DTO limpio ----
-    public DireccionResponseDTO registrarDireccion(com.online.tienda_empeno.dto.DireccionDTO dto) {
-        Optional<Ciudad> ciudadOpt = ciudadRepository.findById(dto.getIdCiudad());
-        if (ciudadOpt.isEmpty()) {
-            throw new RuntimeException("Ciudad no encontrada con id " + dto.getIdCiudad());
-        }
+    // ----- Registrar dirección -----
+    public DireccionResponseDTO registrarDireccion(DireccionDTO dto) {
+        Ciudad ciudad = ciudadRepository.findById(dto.getIdCiudad())
+                .orElseThrow(() -> new RuntimeException("Ciudad no encontrada con id " + dto.getIdCiudad()));
 
         Direcciones direccion = new Direcciones();
-        direccion.setCiudad(ciudadOpt.get());
+        direccion.setCiudad(ciudad);
         direccion.setDireccionCliente(dto.getDireccionCliente());
         direccion.setCodigoPostal(dto.getCodigoPostal());
 
@@ -48,14 +48,12 @@ public class ClienteService {
         return mapDireccionToDto(saved);
     }
 
-    // ---- Paso 2: Registrar cliente y devolver DTO limpio ----
-    public ClienteResponseDTO registrarCliente(com.online.tienda_empeno.dto.ClienteRegistroDTO dto) {
-        Optional<TipoDeDocumento> tipoDocOpt = tipoDeDocumentoRepository.findById(dto.getIdTipoDocumento());
-        if (tipoDocOpt.isEmpty()) {
-            throw new RuntimeException("Tipo de documento no encontrado con id " + dto.getIdTipoDocumento());
-        }
+    // ----- Registrar cliente -----
+    public ClienteResponseDTO registrarCliente(ClienteRegistroDTO dto) {
+        TipoDeDocumento tipoDoc = tipoDeDocumentoRepository.findById(dto.getIdTipoDocumento())
+                .orElseThrow(() -> new RuntimeException("Tipo de documento no encontrado con id " + dto.getIdTipoDocumento()));
 
-        TipoUsuario tipoUsuario = tipoUsuarioRepository.findById(1)
+        TipoUsuario tipoUsuario = tipoUsuarioRepository.findById(1) // 1 = Cliente
                 .orElseThrow(() -> new RuntimeException("Tipo usuario Cliente no encontrado"));
 
         Contraseña contraseña = new Contraseña();
@@ -72,7 +70,7 @@ public class ClienteService {
 
         Cliente cliente = new Cliente();
         cliente.setDireccion(direccion);
-        cliente.setTipoDocumento(tipoDocOpt.get());
+        cliente.setTipoDocumento(tipoDoc);
         cliente.setContraseña(contraseña);
         cliente.setTipoUsuario(tipoUsuario);
         cliente.setNumeroDocumento(dto.getNumeroDocumento());
@@ -84,7 +82,37 @@ public class ClienteService {
         return mapClienteToDto(saved);
     }
 
-    // ---------- mappers privados ----------
+    // ----- Login cliente/admin -----
+    public LoginResponseDTO loginCliente(LoginRequestDTO dto) {
+        // 1️⃣ Buscar cliente por email
+        Cliente cliente = clienteRepository.findByEmailCliente(dto.getEmailCliente());
+        if (cliente != null) {
+            if (cliente.getContraseña().getContraseña().equals(dto.getContraseña())) {
+                return new LoginResponseDTO(
+                        true,
+                        "Login exitoso como Cliente",
+                        cliente.getIdCliente()
+                );
+            } else {
+                return new LoginResponseDTO(false, "Contraseña incorrecta", null);
+            }
+        }
+
+        // 2️⃣ Buscar administrador por email y contraseña
+        Administradores admin = administradorRepository.findByEmailAndPassword(dto.getEmailCliente(), dto.getContraseña());
+        if (admin != null) {
+            return new LoginResponseDTO(
+                    true,
+                    "Login exitoso como Administrador",
+                    admin.getIdAdmin()
+            );
+        }
+
+        // 3️⃣ Si no se encuentra usuario
+        return new LoginResponseDTO(false, "Usuario no encontrado", null);
+    }
+
+    // ----- Mappers privados -----
     private DireccionResponseDTO mapDireccionToDto(Direcciones d) {
         DireccionResponseDTO dto = new DireccionResponseDTO();
         dto.setIdDireccion(d.getIdDireccion());
