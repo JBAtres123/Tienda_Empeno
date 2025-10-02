@@ -3,6 +3,7 @@ package com.online.tienda_empeno.service;
 import com.online.tienda_empeno.dto.*;
 import com.online.tienda_empeno.entity.*;
 import com.online.tienda_empeno.repository.*;
+import com.online.tienda_empeno.utils.JwtUtil;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
@@ -17,6 +18,7 @@ public class ClienteService {
     private final TipoDeDocumentoRepository tipoDeDocumentoRepository;
     private final ContraseñaRepository contraseñaRepository;
     private final TipoUsuarioRepository tipoUsuarioRepository;
+    private final JwtUtil jwtUtil;
 
     public ClienteService(DireccionesRepository direccionesRepository,
                           CiudadRepository ciudadRepository,
@@ -24,7 +26,8 @@ public class ClienteService {
                           AdministradorRepository administradorRepository,
                           TipoDeDocumentoRepository tipoDeDocumentoRepository,
                           ContraseñaRepository contraseñaRepository,
-                          TipoUsuarioRepository tipoUsuarioRepository) {
+                          TipoUsuarioRepository tipoUsuarioRepository,
+                          JwtUtil jwtUtil) {
         this.direccionesRepository = direccionesRepository;
         this.ciudadRepository = ciudadRepository;
         this.clienteRepository = clienteRepository;
@@ -32,9 +35,9 @@ public class ClienteService {
         this.tipoDeDocumentoRepository = tipoDeDocumentoRepository;
         this.contraseñaRepository = contraseñaRepository;
         this.tipoUsuarioRepository = tipoUsuarioRepository;
+        this.jwtUtil = jwtUtil;
     }
 
-    // ----- Registrar dirección -----
     public DireccionResponseDTO registrarDireccion(DireccionDTO dto) {
         Ciudad ciudad = ciudadRepository.findById(dto.getIdCiudad())
                 .orElseThrow(() -> new RuntimeException("Ciudad no encontrada con id " + dto.getIdCiudad()));
@@ -48,12 +51,11 @@ public class ClienteService {
         return mapDireccionToDto(saved);
     }
 
-    // ----- Registrar cliente -----
     public ClienteResponseDTO registrarCliente(ClienteRegistroDTO dto) {
         TipoDeDocumento tipoDoc = tipoDeDocumentoRepository.findById(dto.getIdTipoDocumento())
                 .orElseThrow(() -> new RuntimeException("Tipo de documento no encontrado con id " + dto.getIdTipoDocumento()));
 
-        TipoUsuario tipoUsuario = tipoUsuarioRepository.findById(1) // 1 = Cliente
+        TipoUsuario tipoUsuario = tipoUsuarioRepository.findById(1)
                 .orElseThrow(() -> new RuntimeException("Tipo usuario Cliente no encontrado"));
 
         Contraseña contraseña = new Contraseña();
@@ -82,37 +84,48 @@ public class ClienteService {
         return mapClienteToDto(saved);
     }
 
-    // ----- Login cliente/admin -----
     public LoginResponseDTO loginCliente(LoginRequestDTO dto) {
-        // 1️⃣ Buscar cliente por email
         Cliente cliente = clienteRepository.findByEmailCliente(dto.getEmailCliente());
         if (cliente != null) {
             if (cliente.getContraseña().getContraseña().equals(dto.getContraseña())) {
+                String token = jwtUtil.generateToken(
+                        cliente.getIdCliente(),
+                        cliente.getEmailCliente(),
+                        "Cliente"
+                );
+
                 return new LoginResponseDTO(
                         true,
                         "Login exitoso como Cliente",
-                        cliente.getIdCliente()
+                        cliente.getIdCliente(),
+                        token,
+                        "Cliente"
                 );
             } else {
                 return new LoginResponseDTO(false, "Contraseña incorrecta", null);
             }
         }
 
-        // 2️⃣ Buscar administrador por email y contraseña
         Administradores admin = administradorRepository.findByEmailAndPassword(dto.getEmailCliente(), dto.getContraseña());
         if (admin != null) {
+            String token = jwtUtil.generateToken(
+                    admin.getIdAdmin(),
+                    admin.getEmailAdmin(),  // ← CORREGIDO: getEmailAdmin()
+                    "Administrador"
+            );
+
             return new LoginResponseDTO(
                     true,
                     "Login exitoso como Administrador",
-                    admin.getIdAdmin()
+                    admin.getIdAdmin(),
+                    token,
+                    "Administrador"
             );
         }
 
-        // 3️⃣ Si no se encuentra usuario
         return new LoginResponseDTO(false, "Usuario no encontrado", null);
     }
 
-    // ----- Mappers privados -----
     private DireccionResponseDTO mapDireccionToDto(Direcciones d) {
         DireccionResponseDTO dto = new DireccionResponseDTO();
         dto.setIdDireccion(d.getIdDireccion());
