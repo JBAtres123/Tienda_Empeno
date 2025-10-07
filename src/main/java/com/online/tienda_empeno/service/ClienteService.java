@@ -138,6 +138,11 @@ public class ClienteService {
         return new LoginResponseDTO(false, "Usuario no encontrado", null);
     }
 
+    public boolean validarEmailDisponibilidad(String email) {
+        Cliente cliente = clienteRepository.findByEmailCliente(email);
+        return cliente == null; // true si está disponible, false si ya existe
+    }
+
     private DireccionResponseDTO mapDireccionToDto(Direcciones d) {
         DireccionResponseDTO dto = new DireccionResponseDTO();
         dto.setIdDireccion(d.getIdDireccion());

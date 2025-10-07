@@ -40,4 +40,11 @@ public class ClienteController {
             return ResponseEntity.status(401).body(response); // 401 Unauthorized
         }
     }
+
+    // ---------------- Validar disponibilidad de email ----------------
+    @GetMapping("/validar-email")
+    public ResponseEntity<java.util.Map<String, Boolean>> validarEmail(@RequestParam String email) {
+        boolean disponible = clienteService.validarEmailDisponibilidad(email);
+        return ResponseEntity.ok(java.util.Map.of("disponible", disponible));
+    }
 }
