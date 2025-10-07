@@ -11,6 +11,9 @@ public class Administradores {
     @Column(name = "id_admin")
     private Integer idAdmin;
 
+    @Column(name = "id_rol", nullable = false)
+    private Integer idRol; // ← AGREGAR ESTE CAMPO
+
     @Column(name = "id_contraseña")
     private Integer idContraseña;
 
@@ -26,12 +29,18 @@ public class Administradores {
     @Column(name = "email_admin")
     private String emailAdmin;
 
-    // getters y setters
+    // Getters y Setters
     public Integer getIdAdmin() { return idAdmin; }
     public void setIdAdmin(Integer idAdmin) { this.idAdmin = idAdmin; }
 
+    public Integer getIdRol() { return idRol; }
+    public void setIdRol(Integer idRol) { this.idRol = idRol; }
+
     public Integer getIdContraseña() { return idContraseña; }
     public void setIdContraseña(Integer idContraseña) { this.idContraseña = idContraseña; }
+
+    public Integer getIdTipoUsuario() { return idTipoUsuario; }
+    public void setIdTipoUsuario(Integer idTipoUsuario) { this.idTipoUsuario = idTipoUsuario; }
 
     public String getNombreAdmin() { return nombreAdmin; }
     public void setNombreAdmin(String nombreAdmin) { this.nombreAdmin = nombreAdmin; }
@@ -42,4 +51,3 @@ public class Administradores {
     public String getEmailAdmin() { return emailAdmin; }
     public void setEmailAdmin(String emailAdmin) { this.emailAdmin = emailAdmin; }
 }
-

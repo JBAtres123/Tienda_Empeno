@@ -17,14 +17,14 @@ public class Articulos {
     private Cliente cliente;
 
     @Column(name = "id_estado", nullable = false)
-    private Integer idEstado; // 1 = Solicitado por defecto
+    private Integer idEstado;
 
     @ManyToOne
     @JoinColumn(name = "id_tipo_articulo", nullable = false)
     private TiposArticulos tipoArticulo;
 
     @Column(name = "estado_articulo", nullable = false, length = 20)
-    private String estadoArticulo; // Del 1 al 10 (estado físico del artículo)
+    private String estadoArticulo;
 
     @Column(name = "nombre_articulo", nullable = false, length = 60)
     private String nombreArticulo;
@@ -34,6 +34,9 @@ public class Articulos {
 
     @Column(name = "precio_articulo", nullable = false, precision = 12, scale = 2)
     private BigDecimal precioArticulo;
+
+    @Column(name = "precio_avaluo", precision = 12, scale = 2)
+    private BigDecimal precioAvaluo; // ← NUEVO CAMPO
 
     // Getters y Setters
     public Integer getIdArticulo() { return idArticulo; }
@@ -59,4 +62,7 @@ public class Articulos {
 
     public BigDecimal getPrecioArticulo() { return precioArticulo; }
     public void setPrecioArticulo(BigDecimal precioArticulo) { this.precioArticulo = precioArticulo; }
+
+    public BigDecimal getPrecioAvaluo() { return precioAvaluo; }
+    public void setPrecioAvaluo(BigDecimal precioAvaluo) { this.precioAvaluo = precioAvaluo; }
 }

@@ -6,6 +6,8 @@ import com.online.tienda_empeno.repository.*;
 import com.online.tienda_empeno.utils.JwtUtil;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -35,7 +37,6 @@ public class ArticuloService {
         return tipos.stream().map(this::mapTipoArticuloToDto).collect(Collectors.toList());
     }
 
-    // Método modificado: ahora recibe idCliente como parámetro (extraído del token en el controller)
     public ArticuloResponseDTO registrarArticulo(ArticuloRegistroDTO dto, Integer idCliente) {
         Cliente cliente = clienteRepository.findById(idCliente)
                 .orElseThrow(() -> new RuntimeException("Cliente no encontrado con id " + idCliente));
@@ -52,6 +53,26 @@ public class ArticuloService {
             throw new RuntimeException("El estado del artículo debe ser un valor entre 1 y 10");
         }
 
+        // ========== CALCULAR PRECIO DE AVALÚO ==========
+        BigDecimal porcentajeMin = tipoArticulo.getParametroAvaluo().getPorcentajeMin();
+        BigDecimal porcentajeMax = tipoArticulo.getParametroAvaluo().getPorcentajeMax();
+
+        // Porcentaje base (promedio entre min y max)
+        BigDecimal porcentajeBase = porcentajeMin.add(porcentajeMax)
+                .divide(new BigDecimal("2"), 4, RoundingMode.HALF_UP)
+                .divide(new BigDecimal("100"), 4, RoundingMode.HALF_UP);
+
+        // Factor del estado físico (1-10 convertido a 0.1 - 1.0)
+        BigDecimal factorEstado = new BigDecimal(estadoFisico)
+                .divide(new BigDecimal("10"), 2, RoundingMode.HALF_UP);
+
+        // Precio avalúo = precio_articulo × porcentaje_base × factor_estado
+        BigDecimal precioAvaluo = dto.getPrecioArticulo()
+                .multiply(porcentajeBase)
+                .multiply(factorEstado)
+                .setScale(2, RoundingMode.HALF_UP);
+        // ===============================================
+
         Articulos articulo = new Articulos();
         articulo.setCliente(cliente);
         articulo.setTipoArticulo(tipoArticulo);
@@ -60,6 +81,7 @@ public class ArticuloService {
         articulo.setNombreArticulo(dto.getNombreArticulo());
         articulo.setDescripcion(dto.getDescripcion());
         articulo.setPrecioArticulo(dto.getPrecioArticulo());
+        articulo.setPrecioAvaluo(precioAvaluo); // ← GUARDAR PRECIO AVALUADO
 
         Articulos articuloGuardado = articulosRepository.save(articulo);
 
@@ -116,6 +138,7 @@ public class ArticuloService {
         return dto;
     }
 
+    // ← MAPPER PARA CLIENTES: NO INCLUYE precio_avaluo
     private ArticuloResponseDTO mapArticuloToDto(Articulos a, String urlImagen) {
         ArticuloResponseDTO dto = new ArticuloResponseDTO();
         dto.setIdArticulo(a.getIdArticulo());
@@ -126,6 +149,7 @@ public class ArticuloService {
         dto.setNombreArticulo(a.getNombreArticulo());
         dto.setDescripcion(a.getDescripcion());
         dto.setPrecioArticulo(a.getPrecioArticulo());
+        // NO incluimos precio_avaluo aquí
         dto.setTipoArticulo(mapTipoArticuloSimpleToDto(a.getTipoArticulo()));
         dto.setUrlImagen(urlImagen);
         return dto;

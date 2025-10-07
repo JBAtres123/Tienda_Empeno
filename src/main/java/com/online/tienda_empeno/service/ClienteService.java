@@ -85,6 +85,7 @@ public class ClienteService {
     }
 
     public LoginResponseDTO loginCliente(LoginRequestDTO dto) {
+        // 1. Buscar cliente por email
         Cliente cliente = clienteRepository.findByEmailCliente(dto.getEmailCliente());
         if (cliente != null) {
             if (cliente.getContraseña().getContraseña().equals(dto.getContraseña())) {
@@ -106,11 +107,21 @@ public class ClienteService {
             }
         }
 
+        // 2. Buscar administrador por email y contraseña
         Administradores admin = administradorRepository.findByEmailAndPassword(dto.getEmailCliente(), dto.getContraseña());
         if (admin != null) {
+            // Validar que sea rol 1 (Evaluador) o rol 3 (Desarrollador)
+            if (admin.getIdRol() != 1 && admin.getIdRol() != 3) {
+                return new LoginResponseDTO(
+                        false,
+                        "Acceso denegado: No tiene permisos de administrador",
+                        null
+                );
+            }
+
             String token = jwtUtil.generateToken(
                     admin.getIdAdmin(),
-                    admin.getEmailAdmin(),  // ← CORREGIDO: getEmailAdmin()
+                    admin.getEmailAdmin(),
                     "Administrador"
             );
 
@@ -123,6 +134,7 @@ public class ClienteService {
             );
         }
 
+        // 3. Si no se encuentra usuario
         return new LoginResponseDTO(false, "Usuario no encontrado", null);
     }
 

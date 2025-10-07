@@ -1,0 +1,51 @@
+package com.online.tienda_empeno.dto;
+
+import java.math.BigDecimal;
+
+public class ArticuloSolicitadoDTO {
+    private Integer idArticulo;
+    private String nombreArticulo;
+    private String descripcion;
+    private BigDecimal precioArticulo;
+    private BigDecimal precioAvaluo;
+    private String estadoArticulo;
+    private String nombreCliente;
+    private String emailCliente;
+    private Integer idCliente;
+    private String tipoArticulo;
+    private String urlImagen;
+
+    // Getters y Setters
+    public Integer getIdArticulo() { return idArticulo; }
+    public void setIdArticulo(Integer idArticulo) { this.idArticulo = idArticulo; }
+
+    public String getNombreArticulo() { return nombreArticulo; }
+    public void setNombreArticulo(String nombreArticulo) { this.nombreArticulo = nombreArticulo; }
+
+    public String getDescripcion() { return descripcion; }
+    public void setDescripcion(String descripcion) { this.descripcion = descripcion; }
+
+    public BigDecimal getPrecioArticulo() { return precioArticulo; }
+    public void setPrecioArticulo(BigDecimal precioArticulo) { this.precioArticulo = precioArticulo; }
+
+    public BigDecimal getPrecioAvaluo() { return precioAvaluo; }
+    public void setPrecioAvaluo(BigDecimal precioAvaluo) { this.precioAvaluo = precioAvaluo; }
+
+    public String getEstadoArticulo() { return estadoArticulo; }
+    public void setEstadoArticulo(String estadoArticulo) { this.estadoArticulo = estadoArticulo; }
+
+    public String getNombreCliente() { return nombreCliente; }
+    public void setNombreCliente(String nombreCliente) { this.nombreCliente = nombreCliente; }
+
+    public String getEmailCliente() { return emailCliente; }
+    public void setEmailCliente(String emailCliente) { this.emailCliente = emailCliente; }
+
+    public Integer getIdCliente() { return idCliente; }
+    public void setIdCliente(Integer idCliente) { this.idCliente = idCliente; }
+
+    public String getTipoArticulo() { return tipoArticulo; }
+    public void setTipoArticulo(String tipoArticulo) { this.tipoArticulo = tipoArticulo; }
+
+    public String getUrlImagen() { return urlImagen; }
+    public void setUrlImagen(String urlImagen) { this.urlImagen = urlImagen; }
+}
