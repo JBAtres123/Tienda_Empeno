@@ -5,7 +5,9 @@ import com.online.tienda_empeno.entity.*;
 import com.online.tienda_empeno.repository.*;
 import com.online.tienda_empeno.utils.JwtUtil;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
@@ -19,17 +21,20 @@ public class ArticuloService {
     private final TiposArticulosRepository tiposArticulosRepository;
     private final ClienteRepository clienteRepository;
     private final JwtUtil jwtUtil;
+    private final FileStorageService fileStorageService;
 
     public ArticuloService(ArticulosRepository articulosRepository,
                            ImagenesArticulosRepository imagenesArticulosRepository,
                            TiposArticulosRepository tiposArticulosRepository,
                            ClienteRepository clienteRepository,
-                           JwtUtil jwtUtil) {
+                           JwtUtil jwtUtil,
+                           FileStorageService fileStorageService) {
         this.articulosRepository = articulosRepository;
         this.imagenesArticulosRepository = imagenesArticulosRepository;
         this.tiposArticulosRepository = tiposArticulosRepository;
         this.clienteRepository = clienteRepository;
         this.jwtUtil = jwtUtil;
+        this.fileStorageService = fileStorageService;
     }
 
     public List<TipoArticuloResponseDTO> listarTiposActivos() {
@@ -91,6 +96,72 @@ public class ArticuloService {
         ImagenesArticulos imagenGuardada = imagenesArticulosRepository.save(imagen);
 
         return mapArticuloToDto(articuloGuardado, imagenGuardada.getUrlImagen());
+    }
+
+    public ArticuloResponseDTO registrarArticuloConImagenes(ArticuloRegistroDTO dto, Integer idCliente, MultipartFile[] imagenes) throws IOException {
+
+        // Validar que tenga mínimo 3 imágenes
+        if (imagenes == null || imagenes.length < 3) {
+            throw new RuntimeException("Debes subir mínimo 3 imágenes");
+        }
+
+        // Guardar artículo
+        Cliente cliente = clienteRepository.findById(idCliente)
+                .orElseThrow(() -> new RuntimeException("Cliente no encontrado con id " + idCliente));
+
+        TiposArticulos tipoArticulo = tiposArticulosRepository.findById(dto.getIdTipoArticulo())
+                .orElseThrow(() -> new RuntimeException("Tipo de artículo no encontrado con id " + dto.getIdTipoArticulo()));
+
+        if (tipoArticulo.getEstadoArticulo().getIdEstadoArticulo() != 1) {
+            throw new RuntimeException("El tipo de artículo seleccionado no está activo");
+        }
+
+        int estadoFisico = Integer.parseInt(dto.getEstadoArticulo());
+        if (estadoFisico < 1 || estadoFisico > 10) {
+            throw new RuntimeException("El estado del artículo debe ser un valor entre 1 y 10");
+        }
+
+        // ========== CALCULAR PRECIO DE AVALÚO ==========
+        BigDecimal porcentajeMin = tipoArticulo.getParametroAvaluo().getPorcentajeMin();
+        BigDecimal porcentajeMax = tipoArticulo.getParametroAvaluo().getPorcentajeMax();
+
+        BigDecimal porcentajeBase = porcentajeMin.add(porcentajeMax)
+                .divide(new BigDecimal("2"), 4, RoundingMode.HALF_UP)
+                .divide(new BigDecimal("100"), 4, RoundingMode.HALF_UP);
+
+        BigDecimal factorEstado = new BigDecimal(estadoFisico)
+                .divide(new BigDecimal("10"), 2, RoundingMode.HALF_UP);
+
+        BigDecimal precioAvaluo = dto.getPrecioArticulo()
+                .multiply(porcentajeBase)
+                .multiply(factorEstado)
+                .setScale(2, RoundingMode.HALF_UP);
+        // ===============================================
+
+        Articulos articulo = new Articulos();
+        articulo.setCliente(cliente);
+        articulo.setTipoArticulo(tipoArticulo);
+        articulo.setIdEstado(1);
+        articulo.setEstadoArticulo(dto.getEstadoArticulo());
+        articulo.setNombreArticulo(dto.getNombreArticulo());
+        articulo.setDescripcion(dto.getDescripcion());
+        articulo.setPrecioArticulo(dto.getPrecioArticulo());
+        articulo.setPrecioAvaluo(precioAvaluo);
+
+        Articulos articuloGuardado = articulosRepository.save(articulo);
+
+        // Guardar cada imagen
+        for (MultipartFile imagen : imagenes) {
+            String rutaImagen = fileStorageService.guardarImagen(imagen);
+
+            ImagenesArticulos img = new ImagenesArticulos();
+            img.setArticulo(articuloGuardado);
+            img.setUrlImagen(rutaImagen);
+            imagenesArticulosRepository.save(img);
+        }
+
+        String primeraImagen = obtenerPrimeraImagenArticulo(articuloGuardado.getIdArticulo());
+        return mapArticuloToDto(articuloGuardado, primeraImagen);
     }
 
     public List<ArticuloResponseDTO> obtenerArticulosPorCliente(Integer idCliente) {

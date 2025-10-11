@@ -5,7 +5,9 @@ import com.online.tienda_empeno.service.ArticuloService;
 import com.online.tienda_empeno.utils.JwtUtil;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @RestController
@@ -27,11 +29,16 @@ public class ArticuloController {
         return ResponseEntity.ok(tipos);
     }
 
-    // ← ENDPOINT MODIFICADO CON JWT
+    // ← ENDPOINT MODIFICADO CON JWT Y MULTIPART
     @PostMapping("/registrar")
     public ResponseEntity<?> registrarArticulo(
             @RequestHeader("Authorization") String authHeader,
-            @RequestBody ArticuloRegistroDTO articuloDTO) {
+            @RequestParam("idTipoArticulo") Integer idTipoArticulo,
+            @RequestParam("nombreArticulo") String nombreArticulo,
+            @RequestParam("descripcion") String descripcion,
+            @RequestParam("estadoArticulo") String estadoArticulo,
+            @RequestParam("precioArticulo") BigDecimal precioArticulo,
+            @RequestParam("imagenes") MultipartFile[] imagenes) {
 
         try {
             String token = authHeader.replace("Bearer ", "");
@@ -48,11 +55,19 @@ public class ArticuloController {
                 return ResponseEntity.status(403).body("Solo los clientes pueden empeñar artículos");
             }
 
-            ArticuloResponseDTO articulo = articuloService.registrarArticulo(articuloDTO, idCliente);
+            // Crear DTO
+            ArticuloRegistroDTO dto = new ArticuloRegistroDTO();
+            dto.setIdTipoArticulo(idTipoArticulo);
+            dto.setNombreArticulo(nombreArticulo);
+            dto.setDescripcion(descripcion);
+            dto.setEstadoArticulo(estadoArticulo);
+            dto.setPrecioArticulo(precioArticulo);
+
+            ArticuloResponseDTO articulo = articuloService.registrarArticuloConImagenes(dto, idCliente, imagenes);
             return ResponseEntity.ok(articulo);
 
         } catch (Exception e) {
-            return ResponseEntity.status(401).body("Error de autenticación: " + e.getMessage());
+            return ResponseEntity.status(500).body("Error: " + e.getMessage());
         }
     }
 
