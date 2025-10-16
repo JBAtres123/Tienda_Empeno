@@ -2,12 +2,11 @@ package com.online.tienda_empeno.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import org.springframework.web.filter.CorsFilter;
 
 import java.util.List;
 
@@ -16,36 +15,31 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-
         http
-                // ⚡ Habilita CORS usando el bean CorsFilter
-                .cors(Customizer.withDefaults())
-
-                // ⚡ Deshabilitar CSRF para APIs
+                .cors(cors -> cors.configurationSource(corsConfigurationSource())) // ✅ Activar CORS
                 .csrf(csrf -> csrf.disable())
-
-                // ⚡ Permitir todas las rutas sin autenticación
-                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
-
-                // ⚡ Deshabilitar login por formulario y basic auth
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/**").permitAll()
+                )
                 .formLogin(form -> form.disable())
                 .httpBasic(basic -> basic.disable());
 
         return http.build();
     }
 
-    // 🔹 Bean CorsFilter para Spring Security
+    // ✅ Configuración CORS para desarrollo (permite cualquier origen)
+    // NOTA: En producción, cambiar setAllowedOriginPatterns("*") por setAllowedOrigins() con URLs específicas
     @Bean
-    public CorsFilter corsFilter() {
+    public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOriginPatterns(List.of("*")); // permite cualquier origen
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        config.setAllowCredentials(true);
+        config.setAllowedOriginPatterns(List.of("*")); // Permite cualquier origen (solo para desarrollo)
         config.setAllowedHeaders(List.of("*"));
-        config.setAllowCredentials(true); // permite cookies y credenciales
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
-
-        return new CorsFilter(source);
+        return source;
     }
 }
+
