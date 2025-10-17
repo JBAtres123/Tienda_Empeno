@@ -22,7 +22,7 @@ public class PrestamosService {
     private final AdministradorRepository administradorRepository;
     private final ImagenesArticulosRepository imagenesArticulosRepository;
     private final ContratosRepository contratosRepository;
-    private final TiposArticulosRepository tiposArticulosRepository; // ← NUEVO
+    private final TiposArticulosRepository tiposArticulosRepository;
     private final JwtUtil jwtUtil;
 
     public PrestamosService(PrestamosRepository prestamosRepository,
@@ -31,7 +31,7 @@ public class PrestamosService {
                             AdministradorRepository administradorRepository,
                             ImagenesArticulosRepository imagenesArticulosRepository,
                             ContratosRepository contratosRepository,
-                            TiposArticulosRepository tiposArticulosRepository, // ← NUEVO
+                            TiposArticulosRepository tiposArticulosRepository,
                             JwtUtil jwtUtil) {
         this.prestamosRepository = prestamosRepository;
         this.articulosRepository = articulosRepository;
@@ -39,23 +39,27 @@ public class PrestamosService {
         this.administradorRepository = administradorRepository;
         this.imagenesArticulosRepository = imagenesArticulosRepository;
         this.contratosRepository = contratosRepository;
-        this.tiposArticulosRepository = tiposArticulosRepository; // ← NUEVO
+        this.tiposArticulosRepository = tiposArticulosRepository;
         this.jwtUtil = jwtUtil;
     }
+
+    // ==================== LISTAR TIPOS ====================
 
     public List<TipoArticuloResponseDTO> listarTiposActivos() {
         List<TiposArticulos> tipos = tiposArticulosRepository.findAllActivos();
         return tipos.stream().map(this::mapTipoArticuloToDto).collect(Collectors.toList());
     }
 
-    // ========== LISTAR ARTÍCULOS SOLICITADOS (id_estado = 1) ==========
+    // ==================== LISTAR ARTÍCULOS SOLICITADOS ====================
+
     public List<ArticuloSolicitadoDTO> listarArticulosSolicitados() {
         List<Articulos> articulos = articulosRepository.findAll().stream()
                 .filter(a -> a.getIdEstado() == 1)
                 .collect(Collectors.toList());
-
         return articulos.stream().map(this::mapArticuloToSolicitadoDto).collect(Collectors.toList());
     }
+
+    // ==================== REGISTRAR ARTÍCULO ====================
 
     @Transactional
     public ArticuloResponseDTO registrarArticulo(ArticuloRegistroDTO dto, Integer idCliente) {
@@ -109,6 +113,8 @@ public class PrestamosService {
         return mapArticuloToDto(articuloGuardado, imagenGuardada.getUrlImagen());
     }
 
+    // ==================== CREAR PRÉSTAMO ====================
+
     @Transactional
     public PrestamoResponseDTO crearPrestamo(PrestamoCrearDTO dto, Integer idAdmin) {
         Articulos articulo = articulosRepository.findById(dto.getIdArticulo())
@@ -141,7 +147,8 @@ public class PrestamosService {
         return mapPrestamoToDto(prestamoGuardado);
     }
 
-    // ========== MÉTODO MODIFICADO: Crear contrato al aprobar ==========
+    // ==================== EVALUAR PRÉSTAMO (MODIFICADO) ====================
+
     @Transactional
     public PrestamoResponseDTO evaluarPrestamo(Integer idPrestamo, PrestamoEvaluarDTO dto) {
         Prestamos prestamo = prestamosRepository.findById(idPrestamo)
@@ -155,10 +162,12 @@ public class PrestamosService {
             throw new RuntimeException("Estado inválido. Use 3 para Aprobar o 4 para Rechazar");
         }
 
-        if (dto.getIdEstado() == 3) {
+        Articulos articulo = prestamo.getArticulo();
+
+        if (dto.getIdEstado() == 3) { // ✅ APROBADO
             if (dto.getTasaInteres() == null || dto.getMontoPrestamo() == null ||
                     dto.getPorcentajeAvaluo() == null || dto.getPlazoMeses() == null) {
-                throw new RuntimeException("Para aprobar debe completar: tasa_interes, monto_prestamo, porcentaje_avaluo y plazo_meses");
+                throw new RuntimeException("Debe completar todos los campos para aprobar el préstamo.");
             }
 
             LocalDate fechaInicio = LocalDate.now();
@@ -171,29 +180,43 @@ public class PrestamosService {
             prestamo.setFechaInicio(fechaInicio);
             prestamo.setFechaVencimiento(fechaVencimiento);
 
-            // ========== CREAR CONTRATO AUTOMÁTICAMENTE ==========
+            // ✅ Calcular saldo total con intereses
+            BigDecimal montoTotal = calcularMontoConInteres(dto.getMontoPrestamo(), dto.getTasaInteres(), dto.getPlazoMeses());
+            prestamo.setSaldoAdeudado(montoTotal);
+
+            articulo.setIdEstado(3); // Aprobado
+
+            // Crear contrato automáticamente
             Contratos contrato = new Contratos();
             contrato.setPrestamo(prestamo);
             contrato.setIdEstado(10);
             contrato.setDocumentoContrato(generarUrlDocumentoContrato(prestamo));
             contratosRepository.save(contrato);
-            // ====================================================
+        } else if (dto.getIdEstado() == 4) { // ❌ RECHAZADO
+            articulo.setIdEstado(4);
         }
 
         prestamo.setIdEstado(dto.getIdEstado());
-
-        Articulos articulo = prestamo.getArticulo();
-        articulo.setIdEstado(dto.getIdEstado());
+        prestamosRepository.save(prestamo);
         articulosRepository.save(articulo);
 
-        Prestamos prestamoActualizado = prestamosRepository.save(prestamo);
-
-        return mapPrestamoToDto(prestamoActualizado);
+        return mapPrestamoToDto(prestamo);
     }
 
+    // ==================== CÁLCULO DEL MONTO TOTAL ====================
+
+    private BigDecimal calcularMontoConInteres(BigDecimal montoPrestamo, BigDecimal tasaInteres, Integer plazoMeses) {
+        BigDecimal interes = montoPrestamo
+                .multiply(tasaInteres)
+                .multiply(BigDecimal.valueOf(plazoMeses))
+                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        return montoPrestamo.add(interes);
+    }
+
+    // ==================== OTROS MÉTODOS ====================
+
     public List<PrestamoResponseDTO> listarPrestamos() {
-        List<Prestamos> prestamos = prestamosRepository.findAll();
-        return prestamos.stream().map(this::mapPrestamoToDto).collect(Collectors.toList());
+        return prestamosRepository.findAll().stream().map(this::mapPrestamoToDto).collect(Collectors.toList());
     }
 
     public PrestamoResponseDTO obtenerPrestamoPorId(Integer idPrestamo) {
@@ -202,17 +225,10 @@ public class PrestamosService {
         return mapPrestamoToDto(prestamo);
     }
 
-    // ========== MÉTODO NUEVO: Generar URL del documento del contrato ==========
     private String generarUrlDocumentoContrato(Prestamos prestamo) {
-        // Aquí puedes generar un PDF real o simplemente una URL
         return "https://casadeempeno.com/contratos/contrato_" +
                 prestamo.getIdPrestamo() + "_" +
                 prestamo.getCliente().getIdCliente() + ".pdf";
-    }
-
-    private String obtenerPrimeraImagenArticulo(Integer idArticulo) {
-        List<ImagenesArticulos> imagenes = imagenesArticulosRepository.findByArticuloId(idArticulo);
-        return imagenes.isEmpty() ? null : imagenes.get(0).getUrlImagen();
     }
 
     private TipoArticuloResponseDTO mapTipoArticuloToDto(TiposArticulos t) {
@@ -262,20 +278,13 @@ public class PrestamosService {
         dto.setNombreEstado(obtenerNombreEstado(p.getIdEstado()));
         dto.setTasaInteres(p.getTasaInteres());
         dto.setMontoPrestamo(p.getMontoPrestamo());
+        dto.setSaldoAdeudado(p.getSaldoAdeudado()); // ✨ AGREGAR ESTA LÍNEA
         dto.setPorcentajeAvaluo(p.getPorcentajeAvaluo());
         dto.setPlazoMeses(p.getPlazoMeses());
         dto.setFechaInicio(p.getFechaInicio());
         dto.setFechaVencimiento(p.getFechaVencimiento());
         dto.setPrecioArticulo(p.getArticulo().getPrecioArticulo());
         dto.setPrecioAvaluo(p.getArticulo().getPrecioAvaluo());
-        return dto;
-    }
-
-    private ImagenResponseDTO mapImagenToDto(ImagenesArticulos i) {
-        ImagenResponseDTO dto = new ImagenResponseDTO();
-        dto.setIdImagen(i.getIdImagen());
-        dto.setIdArticulo(i.getArticulo().getIdArticulo());
-        dto.setUrlImagen(i.getUrlImagen());
         return dto;
     }
 
@@ -290,7 +299,6 @@ public class PrestamosService {
         }
     }
 
-    // Mapper para ArticuloSolicitadoDTO
     private ArticuloSolicitadoDTO mapArticuloToSolicitadoDto(Articulos a) {
         ArticuloSolicitadoDTO dto = new ArticuloSolicitadoDTO();
         dto.setIdArticulo(a.getIdArticulo());
@@ -303,12 +311,8 @@ public class PrestamosService {
         dto.setEmailCliente(a.getCliente().getEmailCliente());
         dto.setIdCliente(a.getCliente().getIdCliente());
         dto.setTipoArticulo(a.getTipoArticulo().getNombreTipoArticulo());
-
         List<ImagenesArticulos> imagenes = imagenesArticulosRepository.findByArticuloId(a.getIdArticulo());
-        if (!imagenes.isEmpty()) {
-            dto.setUrlImagen(imagenes.get(0).getUrlImagen());
-        }
-
+        if (!imagenes.isEmpty()) dto.setUrlImagen(imagenes.get(0).getUrlImagen());
         return dto;
     }
 }

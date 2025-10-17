@@ -86,15 +86,22 @@ public class ContratosYPagosService {
         contrato.setFirmaCliente(dto.getFirmaCliente());
         contrato.setIdEstado(11);
         contrato.setFechaFirma(LocalDateTime.now());
+        contratosRepository.save(contrato);
 
+        // Cambiar artículo a estado 5 (En Préstamo)
         Articulos articulo = contrato.getPrestamo().getArticulo();
         articulo.setIdEstado(5);
         articulosRepository.save(articulo);
 
+        // Cambiar préstamo a estado 5 (Activo)
+        Prestamos prestamo = contrato.getPrestamo();
+        prestamo.setIdEstado(5);
+        prestamosRepository.save(prestamo);
+
         return mapContratoToDto(contrato);
     }
 
-    // ==================== PAGOS ====================
+    // ==================== PAGOS CON TARJETA ====================
 
     @Transactional
     public FacturaResponseDTO pagarConTarjeta(PagoTarjetaDTO dto, Integer idCliente) {
@@ -105,16 +112,48 @@ public class ContratosYPagosService {
             throw new RuntimeException("Este préstamo no te pertenece");
         }
 
+        // Validar que el préstamo esté activo (estado 5)
+        if (prestamo.getIdEstado() != 5) {
+            throw new RuntimeException("El préstamo no está activo para recibir pagos");
+        }
+
+        // Validar que haya saldo pendiente
+        if (prestamo.getSaldoAdeudado() == null || prestamo.getSaldoAdeudado().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new RuntimeException("Este préstamo ya está liquidado");
+        }
+
         MetodoPago metodoPago = metodoPagoRepository.findById(1)
                 .orElseThrow(() -> new RuntimeException("Método de pago no encontrado"));
 
-        // 💳 Calcular cuota mensual y mora
-        BigDecimal montoCuota = calcularCuotaMensual(prestamo);
+        // ✨ CALCULAR MONTO A PAGAR (cuota fija del monto total inicial / plazo)
+        BigDecimal montoTotalOriginal = prestamo.getMontoPrestamo()
+                .multiply(BigDecimal.ONE.add(prestamo.getTasaInteres()
+                        .multiply(BigDecimal.valueOf(prestamo.getPlazoMeses()))
+                        .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)));
+
+        BigDecimal cuotaMensual = montoTotalOriginal
+                .divide(BigDecimal.valueOf(prestamo.getPlazoMeses()), 2, RoundingMode.HALF_UP);
+
+        // ✨ CLAVE: Si el saldo restante es MENOR que la cuota, cobrar solo el saldo
+        BigDecimal montoPago;
+        if (prestamo.getSaldoAdeudado().compareTo(cuotaMensual) < 0) {
+            montoPago = prestamo.getSaldoAdeudado();
+        } else {
+            montoPago = cuotaMensual;
+        }
+
+        // Agregar mora si está vencido
         BigDecimal montoMora = BigDecimal.ZERO;
         if (prestamo.getFechaVencimiento() != null && LocalDate.now().isAfter(prestamo.getFechaVencimiento())) {
             montoMora = new BigDecimal("25.00");
         }
-        BigDecimal montoTotal = montoCuota.add(montoMora);
+
+        BigDecimal montoTotal = montoPago.add(montoMora);
+
+        // Validación final: el monto total no puede exceder el saldo
+        if (montoTotal.compareTo(prestamo.getSaldoAdeudado()) > 0) {
+            montoTotal = prestamo.getSaldoAdeudado();
+        }
 
         // 💳 Guardar tarjeta
         Tarjetas tarjeta = new Tarjetas();
@@ -133,14 +172,44 @@ public class ContratosYPagosService {
         pago.setMesPago(LocalDate.now());
         PagosPrestamo pagoGuardado = pagosPrestamoRepository.save(pago);
 
+        // ✨ RESTAR DEL SALDO ADEUDADO
+        BigDecimal nuevoSaldo = prestamo.getSaldoAdeudado().subtract(montoTotal);
+        prestamo.setSaldoAdeudado(nuevoSaldo);
+
+        boolean prestamoCancelado = false;
+
+        // ✨ SI EL SALDO LLEGA A 0, CAMBIAR ESTADOS
+        if (nuevoSaldo.compareTo(BigDecimal.ZERO) <= 0) {
+            // Artículo a estado 7 (Recuperado)
+            Articulos articulo = prestamo.getArticulo();
+            articulo.setIdEstado(7);
+            articulosRepository.save(articulo);
+
+            // Préstamo a estado 6 (Liquidado)
+            prestamo.setIdEstado(6);
+            prestamoCancelado = true;
+        }
+
+        prestamosRepository.save(prestamo);
+
         // 🧾 Crear factura
         Factura factura = new Factura();
         factura.setPagoPrestamo(pagoGuardado);
         factura.setFechaPago(LocalDate.now());
         Factura facturaGuardada = facturaRepository.save(factura);
 
-        return mapFacturaToDto(facturaGuardada);
+        FacturaResponseDTO facturaDTO = mapFacturaToDto(facturaGuardada);
+        facturaDTO.setSaldoRestante(nuevoSaldo);
+        facturaDTO.setPrestamoCancelado(prestamoCancelado);
+
+        if (prestamoCancelado) {
+            facturaDTO.setMensajeAdicional("¡Felicidades! Has liquidado completamente tu préstamo. Ya puedes recuperar tu artículo.");
+        }
+
+        return facturaDTO;
     }
+
+    // ==================== PAGOS EN EFECTIVO ====================
 
     @Transactional
     public CobranzaResponseDTO pagarEnEfectivo(PagoEfectivoDTO dto, Integer idCliente) {
@@ -149,6 +218,16 @@ public class ContratosYPagosService {
 
         if (!prestamo.getCliente().getIdCliente().equals(idCliente)) {
             throw new RuntimeException("Este préstamo no te pertenece");
+        }
+
+        // Validar que el préstamo esté activo (estado 5)
+        if (prestamo.getIdEstado() != 5) {
+            throw new RuntimeException("El préstamo no está activo para recibir pagos");
+        }
+
+        // Validar que haya saldo pendiente
+        if (prestamo.getSaldoAdeudado() == null || prestamo.getSaldoAdeudado().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new RuntimeException("Este préstamo ya está liquidado");
         }
 
         MetodoPago metodoPago = metodoPagoRepository.findById(2)
@@ -160,12 +239,35 @@ public class ContratosYPagosService {
 
         Administradores cobrador = cobradores.get(0);
 
-        BigDecimal montoCuota = calcularCuotaMensual(prestamo);
+        // ✨ CALCULAR MONTO A PAGAR (cuota fija del monto total inicial / plazo)
+        BigDecimal montoTotalOriginal = prestamo.getMontoPrestamo()
+                .multiply(BigDecimal.ONE.add(prestamo.getTasaInteres()
+                        .multiply(BigDecimal.valueOf(prestamo.getPlazoMeses()))
+                        .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)));
+
+        BigDecimal cuotaMensual = montoTotalOriginal
+                .divide(BigDecimal.valueOf(prestamo.getPlazoMeses()), 2, RoundingMode.HALF_UP);
+
+        // ✨ CLAVE: Si el saldo restante es MENOR que la cuota, cobrar solo el saldo
+        BigDecimal montoPago;
+        if (prestamo.getSaldoAdeudado().compareTo(cuotaMensual) < 0) {
+            montoPago = prestamo.getSaldoAdeudado();
+        } else {
+            montoPago = cuotaMensual;
+        }
+
+        // Agregar mora si está vencido
         BigDecimal montoMora = BigDecimal.ZERO;
         if (prestamo.getFechaVencimiento() != null && LocalDate.now().isAfter(prestamo.getFechaVencimiento())) {
             montoMora = new BigDecimal("25.00");
         }
-        BigDecimal montoTotal = montoCuota.add(montoMora);
+
+        BigDecimal montoTotal = montoPago.add(montoMora);
+
+        // Validación final
+        if (montoTotal.compareTo(prestamo.getSaldoAdeudado()) > 0) {
+            montoTotal = prestamo.getSaldoAdeudado();
+        }
 
         PagosPrestamo pago = new PagosPrestamo();
         pago.setPrestamo(prestamo);
@@ -175,16 +277,55 @@ public class ContratosYPagosService {
         pago.setMesPago(LocalDate.now());
         PagosPrestamo pagoGuardado = pagosPrestamoRepository.save(pago);
 
-        LocalDate fechaVisita = LocalDate.now().plusDays(15);
-        String comentario = String.format(
-                "Estimado/a %s, nuestro cobrador visitará su domicilio el día %s.\n\n" +
-                        "Cuota mensual: $%.2f\n%sMonto total: $%.2f\n\nCasa de Empeño - Atención al Cliente",
-                prestamo.getCliente().getNombreCliente(),
-                fechaVisita.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
-                montoCuota,
-                montoMora.compareTo(BigDecimal.ZERO) > 0 ? String.format("Mora por atraso: $%.2f\n", montoMora) : "",
-                montoTotal
-        );
+        // ✨ RESTAR DEL SALDO ADEUDADO
+        BigDecimal nuevoSaldo = prestamo.getSaldoAdeudado().subtract(montoTotal);
+        prestamo.setSaldoAdeudado(nuevoSaldo);
+
+        boolean prestamoCancelado = false;
+
+        // ✨ SI EL SALDO LLEGA A 0, CAMBIAR ESTADOS
+        if (nuevoSaldo.compareTo(BigDecimal.ZERO) <= 0) {
+            // Artículo a estado 7 (Recuperado)
+            Articulos articulo = prestamo.getArticulo();
+            articulo.setIdEstado(7);
+            articulosRepository.save(articulo);
+
+            // Préstamo a estado 6 (Liquidado)
+            prestamo.setIdEstado(6);
+            prestamoCancelado = true;
+        }
+
+        prestamosRepository.save(prestamo);
+
+        LocalDate fechaVisita = prestamoCancelado ? null : LocalDate.now().plusDays(15);
+        String comentario;
+
+        if (prestamoCancelado) {
+            comentario = String.format(
+                    "¡PRÉSTAMO LIQUIDADO!\n\n" +
+                            "Estimado/a %s, felicitaciones por completar el pago de su préstamo.\n\n" +
+                            "Último pago: $%.2f\n" +
+                            "Saldo final: $0.00\n\n" +
+                            "Ya puede recuperar su artículo en nuestra sucursal.\n\n" +
+                            "Casa de Empeño - Atención al Cliente",
+                    prestamo.getCliente().getNombreCliente(),
+                    montoTotal
+            );
+        } else {
+            comentario = String.format(
+                    "Estimado/a %s, nuestro cobrador visitará su domicilio el día %s.\n\n" +
+                            "Cuota mensual: $%.2f\n%s" +
+                            "Monto pagado: $%.2f\n" +
+                            "Saldo restante: $%.2f\n\n" +
+                            "Casa de Empeño - Atención al Cliente",
+                    prestamo.getCliente().getNombreCliente(),
+                    fechaVisita.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                    cuotaMensual,
+                    montoMora.compareTo(BigDecimal.ZERO) > 0 ? String.format("Mora por atraso: $%.2f\n", montoMora) : "",
+                    montoTotal,
+                    nuevoSaldo
+            );
+        }
 
         Cobranza cobranza = new Cobranza();
         cobranza.setPagoPrestamo(pagoGuardado);
@@ -193,7 +334,7 @@ public class ContratosYPagosService {
         Cobranza cobranzaGuardada = cobranzaRepository.save(cobranza);
 
         Integer idDepartamento = obtenerIdDepartamentoCliente(prestamo.getCliente());
-        String rutaAsignada = generarRutaPorDepartamento(idDepartamento);
+        String rutaAsignada = prestamoCancelado ? "PRÉSTAMO LIQUIDADO" : generarRutaPorDepartamento(idDepartamento);
 
         Departamento departamento = null;
         if (idDepartamento != null) {
@@ -206,28 +347,33 @@ public class ContratosYPagosService {
         ruta.setAsignacionRuta(rutaAsignada);
         rutaDeCobranzaRepository.save(ruta);
 
-        return mapCobranzaToDto(cobranzaGuardada, rutaAsignada);
+        CobranzaResponseDTO cobranzaDTO = mapCobranzaToDto(cobranzaGuardada, rutaAsignada);
+        cobranzaDTO.setSaldoRestante(nuevoSaldo);
+        cobranzaDTO.setPrestamoCancelado(prestamoCancelado);
+
+        return cobranzaDTO;
     }
 
-    // ✅ Nuevo método agregado aquí
+    // ==================== LISTAR COBRANZAS DEL CLIENTE ====================
+
     public List<CobranzaResponseDTO> listarCobranzasCliente(Integer idCliente) {
         List<Cobranza> cobranzas = cobranzaRepository.findByClienteId(idCliente);
 
         return cobranzas.stream().map(c -> {
             RutaDeCobranza ruta = rutaDeCobranzaRepository.findByCobranzaId(c.getIdCobranza());
             String asignacionRuta = ruta != null ? ruta.getAsignacionRuta() : "Sin asignar";
-            return mapCobranzaToDto(c, asignacionRuta);
+
+            CobranzaResponseDTO dto = mapCobranzaToDto(c, asignacionRuta);
+
+            Prestamos prestamo = c.getPagoPrestamo().getPrestamo();
+            dto.setSaldoRestante(prestamo.getSaldoAdeudado());
+            dto.setPrestamoCancelado(prestamo.getIdEstado() == 6);
+
+            return dto;
         }).collect(Collectors.toList());
     }
 
     // ==================== HELPERS ====================
-
-    private BigDecimal calcularCuotaMensual(Prestamos prestamo) {
-        BigDecimal montoPrestamo = prestamo.getMontoPrestamo();
-        Integer plazoMeses = prestamo.getPlazoMeses();
-        if (plazoMeses == null || plazoMeses == 0) throw new RuntimeException("El préstamo no tiene plazo definido");
-        return montoPrestamo.divide(new BigDecimal(plazoMeses), 2, RoundingMode.HALF_UP);
-    }
 
     private Integer obtenerIdDepartamentoCliente(Cliente cliente) {
         if (cliente.getDireccion() != null &&
@@ -264,6 +410,7 @@ public class ContratosYPagosService {
         dto.setIdPrestamo(c.getPrestamo().getIdPrestamo());
         dto.setNombreArticulo(c.getPrestamo().getArticulo().getNombreArticulo());
         dto.setMontoPrestamo(c.getPrestamo().getMontoPrestamo());
+        dto.setSaldoAdeudado(c.getPrestamo().getSaldoAdeudado());
         dto.setTasaInteres(c.getPrestamo().getTasaInteres());
         dto.setPlazoMeses(c.getPrestamo().getPlazoMeses());
         dto.setFechaInicio(c.getPrestamo().getFechaInicio());

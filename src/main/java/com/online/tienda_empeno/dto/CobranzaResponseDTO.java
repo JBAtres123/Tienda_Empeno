@@ -13,6 +13,25 @@ public class CobranzaResponseDTO {
     private String direccionCliente;
     private String nombreCobrador;
     private String asignacionRuta;
+    private BigDecimal saldoRestante; // ✨ AGREGAR
+    private Boolean prestamoCancelado; // ✨ AGREGAR
+
+    // Getters y Setters
+    public BigDecimal getSaldoRestante() {
+        return saldoRestante;
+    }
+
+    public void setSaldoRestante(BigDecimal saldoRestante) {
+        this.saldoRestante = saldoRestante;
+    }
+
+    public Boolean getPrestamoCancelado() {
+        return prestamoCancelado;
+    }
+
+    public void setPrestamoCancelado(Boolean prestamoCancelado) {
+        this.prestamoCancelado = prestamoCancelado;
+    }
 
     // Getters y Setters
     public Integer getIdCobranza() { return idCobranza; }

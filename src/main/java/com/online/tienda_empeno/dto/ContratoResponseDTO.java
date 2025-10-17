@@ -20,6 +20,16 @@ public class ContratoResponseDTO {
     private String documentoContrato;
     private String nombreCliente;
     private String emailCliente;
+    private BigDecimal saldoAdeudado; // ✨ AGREGAR
+
+    // Getter y Setter
+    public BigDecimal getSaldoAdeudado() {
+        return saldoAdeudado;
+    }
+
+    public void setSaldoAdeudado(BigDecimal saldoAdeudado) {
+        this.saldoAdeudado = saldoAdeudado;
+    }
 
     // Getters y Setters
     public Integer getIdContrato() { return idContrato; }

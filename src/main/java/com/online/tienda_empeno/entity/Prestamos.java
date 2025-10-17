@@ -50,6 +50,9 @@ public class Prestamos {
     @Column(name = "fecha_creacion", updatable = false)
     private LocalDateTime fechaCreacion;
 
+    @Column(name = "saldo_adeudado", precision = 12, scale = 2)
+    private BigDecimal saldoAdeudado;
+
     // Getters y Setters
     public Integer getIdPrestamo() { return idPrestamo; }
     public void setIdPrestamo(Integer idPrestamo) { this.idPrestamo = idPrestamo; }
@@ -86,6 +89,14 @@ public class Prestamos {
 
     public LocalDateTime getFechaCreacion() { return fechaCreacion; }
     public void setFechaCreacion(LocalDateTime fechaCreacion) { this.fechaCreacion = fechaCreacion; }
+
+    public BigDecimal getSaldoAdeudado() {
+        return saldoAdeudado;
+    }
+
+    public void setSaldoAdeudado(BigDecimal saldoAdeudado) {
+        this.saldoAdeudado = saldoAdeudado;
+    }
 
     @PrePersist
     protected void onCreate() {

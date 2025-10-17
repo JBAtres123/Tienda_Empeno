@@ -12,6 +12,34 @@ public class FacturaResponseDTO {
     private String nombreArticulo;
     private String metodoPago;
     private Integer idPrestamo;
+    private BigDecimal saldoRestante; // ✨ AGREGAR
+    private Boolean prestamoCancelado; // ✨ AGREGAR
+    private String mensajeAdicional; // ✨ AGREGAR
+
+    // Getters y Setters
+    public BigDecimal getSaldoRestante() {
+        return saldoRestante;
+    }
+
+    public void setSaldoRestante(BigDecimal saldoRestante) {
+        this.saldoRestante = saldoRestante;
+    }
+
+    public Boolean getPrestamoCancelado() {
+        return prestamoCancelado;
+    }
+
+    public void setPrestamoCancelado(Boolean prestamoCancelado) {
+        this.prestamoCancelado = prestamoCancelado;
+    }
+
+    public String getMensajeAdicional() {
+        return mensajeAdicional;
+    }
+
+    public void setMensajeAdicional(String mensajeAdicional) {
+        this.mensajeAdicional = mensajeAdicional;
+    }
 
     // Getters y Setters
     public Integer getIdFactura() { return idFactura; }
