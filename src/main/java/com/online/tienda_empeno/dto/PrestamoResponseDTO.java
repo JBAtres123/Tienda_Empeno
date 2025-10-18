@@ -21,6 +21,16 @@ public class PrestamoResponseDTO {
     private LocalDate fechaVencimiento;
     private BigDecimal precioArticulo;
     private BigDecimal precioAvaluo;
+    private BigDecimal saldoAdeudado;
+
+
+    public BigDecimal getSaldoAdeudado() {
+        return saldoAdeudado;
+    }
+
+    public void setSaldoAdeudado(BigDecimal saldoAdeudado) {
+        this.saldoAdeudado = saldoAdeudado;
+    }
 
     // Getters y Setters
     public Integer getIdPrestamo() { return idPrestamo; }

@@ -3,9 +3,12 @@ package com.online.tienda_empeno.service;
 import com.online.tienda_empeno.dto.*;
 import com.online.tienda_empeno.entity.*;
 import com.online.tienda_empeno.repository.*;
+import com.online.tienda_empeno.utils.JwtUtil;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -18,93 +21,155 @@ public class PrestamosService {
     private final ClienteRepository clienteRepository;
     private final AdministradorRepository administradorRepository;
     private final ImagenesArticulosRepository imagenesArticulosRepository;
+    private final ContratosRepository contratosRepository;
+    private final TiposArticulosRepository tiposArticulosRepository;
+    private final JwtUtil jwtUtil;
 
     public PrestamosService(PrestamosRepository prestamosRepository,
                             ArticulosRepository articulosRepository,
                             ClienteRepository clienteRepository,
                             AdministradorRepository administradorRepository,
-                            ImagenesArticulosRepository imagenesArticulosRepository) {
+                            ImagenesArticulosRepository imagenesArticulosRepository,
+                            ContratosRepository contratosRepository,
+                            TiposArticulosRepository tiposArticulosRepository,
+                            JwtUtil jwtUtil) {
         this.prestamosRepository = prestamosRepository;
         this.articulosRepository = articulosRepository;
         this.clienteRepository = clienteRepository;
         this.administradorRepository = administradorRepository;
         this.imagenesArticulosRepository = imagenesArticulosRepository;
+        this.contratosRepository = contratosRepository;
+        this.tiposArticulosRepository = tiposArticulosRepository;
+        this.jwtUtil = jwtUtil;
     }
 
-    // ========== LISTAR ARTÍCULOS SOLICITADOS (id_estado = 1) ==========
+    // ==================== LISTAR TIPOS ====================
+
+    public List<TipoArticuloResponseDTO> listarTiposActivos() {
+        List<TiposArticulos> tipos = tiposArticulosRepository.findAllActivos();
+        return tipos.stream().map(this::mapTipoArticuloToDto).collect(Collectors.toList());
+    }
+
+    // ==================== LISTAR ARTÍCULOS SOLICITADOS ====================
+
     public List<ArticuloSolicitadoDTO> listarArticulosSolicitados() {
-        // Buscar artículos con estado = 1 (Solicitado)
         List<Articulos> articulos = articulosRepository.findAll().stream()
                 .filter(a -> a.getIdEstado() == 1)
                 .collect(Collectors.toList());
-
         return articulos.stream().map(this::mapArticuloToSolicitadoDto).collect(Collectors.toList());
     }
 
-    // ========== CREAR PRÉSTAMO (iniciar evaluación) ==========
+    // ==================== REGISTRAR ARTÍCULO ====================
+
+    @Transactional
+    public ArticuloResponseDTO registrarArticulo(ArticuloRegistroDTO dto, Integer idCliente) {
+        Cliente cliente = clienteRepository.findById(idCliente)
+                .orElseThrow(() -> new RuntimeException("Cliente no encontrado con id " + idCliente));
+
+        TiposArticulos tipoArticulo = tiposArticulosRepository.findById(dto.getIdTipoArticulo())
+                .orElseThrow(() -> new RuntimeException("Tipo de artículo no encontrado con id " + dto.getIdTipoArticulo()));
+
+        if (tipoArticulo.getEstadoArticulo().getIdEstadoArticulo() != 1) {
+            throw new RuntimeException("El tipo de artículo seleccionado no está activo");
+        }
+
+        int estadoFisico = Integer.parseInt(dto.getEstadoArticulo());
+        if (estadoFisico < 1 || estadoFisico > 10) {
+            throw new RuntimeException("El estado del artículo debe ser un valor entre 1 y 10");
+        }
+
+        BigDecimal porcentajeMin = tipoArticulo.getParametroAvaluo().getPorcentajeMin();
+        BigDecimal porcentajeMax = tipoArticulo.getParametroAvaluo().getPorcentajeMax();
+
+        BigDecimal porcentajeBase = porcentajeMin.add(porcentajeMax)
+                .divide(new BigDecimal("2"), 4, RoundingMode.HALF_UP)
+                .divide(new BigDecimal("100"), 4, RoundingMode.HALF_UP);
+
+        BigDecimal factorEstado = new BigDecimal(estadoFisico)
+                .divide(new BigDecimal("10"), 2, RoundingMode.HALF_UP);
+
+        BigDecimal precioAvaluo = dto.getPrecioArticulo()
+                .multiply(porcentajeBase)
+                .multiply(factorEstado)
+                .setScale(2, RoundingMode.HALF_UP);
+
+        Articulos articulo = new Articulos();
+        articulo.setCliente(cliente);
+        articulo.setTipoArticulo(tipoArticulo);
+        articulo.setIdEstado(1);
+        articulo.setEstadoArticulo(dto.getEstadoArticulo());
+        articulo.setNombreArticulo(dto.getNombreArticulo());
+        articulo.setDescripcion(dto.getDescripcion());
+        articulo.setPrecioArticulo(dto.getPrecioArticulo());
+        articulo.setPrecioAvaluo(precioAvaluo);
+
+        Articulos articuloGuardado = articulosRepository.save(articulo);
+
+        ImagenesArticulos imagen = new ImagenesArticulos();
+        imagen.setArticulo(articuloGuardado);
+        imagen.setUrlImagen(dto.getUrlImagen());
+        ImagenesArticulos imagenGuardada = imagenesArticulosRepository.save(imagen);
+
+        return mapArticuloToDto(articuloGuardado, imagenGuardada.getUrlImagen());
+    }
+
+    // ==================== CREAR PRÉSTAMO ====================
+
     @Transactional
     public PrestamoResponseDTO crearPrestamo(PrestamoCrearDTO dto, Integer idAdmin) {
-        // 1. Validar que el artículo exista
         Articulos articulo = articulosRepository.findById(dto.getIdArticulo())
                 .orElseThrow(() -> new RuntimeException("Artículo no encontrado con id " + dto.getIdArticulo()));
 
-        // 2. Validar que el artículo esté en estado "Solicitado" (1)
         if (articulo.getIdEstado() != 1) {
             throw new RuntimeException("El artículo no está en estado Solicitado");
         }
 
-        // 3. Validar que no exista ya un préstamo para este artículo
         Prestamos prestamoExistente = prestamosRepository.findByArticuloId(dto.getIdArticulo());
         if (prestamoExistente != null) {
             throw new RuntimeException("Ya existe un préstamo para este artículo");
         }
 
-        // 4. Cambiar estado del artículo: 1 (Solicitado) → 2 (En Evaluación)
         articulo.setIdEstado(2);
         articulosRepository.save(articulo);
 
-        // 5. Obtener cliente y administrador
         Cliente cliente = articulo.getCliente();
         Administradores admin = administradorRepository.findById(idAdmin)
                 .orElseThrow(() -> new RuntimeException("Administrador no encontrado"));
 
-        // 6. Crear el préstamo
         Prestamos prestamo = new Prestamos();
         prestamo.setArticulo(articulo);
         prestamo.setCliente(cliente);
         prestamo.setAdministrador(admin);
-        prestamo.setIdEstado(2); // En Evaluación
+        prestamo.setIdEstado(2);
 
         Prestamos prestamoGuardado = prestamosRepository.save(prestamo);
 
         return mapPrestamoToDto(prestamoGuardado);
     }
 
-    // ========== EVALUAR PRÉSTAMO (aprobar/rechazar) ==========
+    // ==================== EVALUAR PRÉSTAMO (MODIFICADO) ====================
+
     @Transactional
     public PrestamoResponseDTO evaluarPrestamo(Integer idPrestamo, PrestamoEvaluarDTO dto) {
-        // 1. Buscar el préstamo
         Prestamos prestamo = prestamosRepository.findById(idPrestamo)
                 .orElseThrow(() -> new RuntimeException("Préstamo no encontrado con id " + idPrestamo));
 
-        // 2. Validar que esté en estado "En Evaluación" (2)
         if (prestamo.getIdEstado() != 2) {
             throw new RuntimeException("El préstamo no está en evaluación");
         }
 
-        // 3. Validar estado destino (3 = Aprobado, 4 = Rechazado)
         if (dto.getIdEstado() != 3 && dto.getIdEstado() != 4) {
             throw new RuntimeException("Estado inválido. Use 3 para Aprobar o 4 para Rechazar");
         }
 
-        // 4. Si es APROBADO, validar campos obligatorios
-        if (dto.getIdEstado() == 3) {
+        Articulos articulo = prestamo.getArticulo();
+
+        if (dto.getIdEstado() == 3) { // ✅ APROBADO
             if (dto.getTasaInteres() == null || dto.getMontoPrestamo() == null ||
                     dto.getPorcentajeAvaluo() == null || dto.getPlazoMeses() == null) {
-                throw new RuntimeException("Para aprobar debe completar: tasa_interes, monto_prestamo, porcentaje_avaluo y plazo_meses");
+                throw new RuntimeException("Debe completar todos los campos para aprobar el préstamo.");
             }
 
-            // Calcular fechas
             LocalDate fechaInicio = LocalDate.now();
             LocalDate fechaVencimiento = fechaInicio.plusMonths(dto.getPlazoMeses());
 
@@ -114,54 +179,89 @@ public class PrestamosService {
             prestamo.setPlazoMeses(dto.getPlazoMeses());
             prestamo.setFechaInicio(fechaInicio);
             prestamo.setFechaVencimiento(fechaVencimiento);
+
+            // ✅ Calcular saldo total con intereses
+            BigDecimal montoTotal = calcularMontoConInteres(dto.getMontoPrestamo(), dto.getTasaInteres(), dto.getPlazoMeses());
+            prestamo.setSaldoAdeudado(montoTotal);
+
+            articulo.setIdEstado(3); // Aprobado
+
+            // Crear contrato automáticamente
+            Contratos contrato = new Contratos();
+            contrato.setPrestamo(prestamo);
+            contrato.setIdEstado(10);
+            contrato.setDocumentoContrato(generarUrlDocumentoContrato(prestamo));
+            contratosRepository.save(contrato);
+        } else if (dto.getIdEstado() == 4) { // ❌ RECHAZADO
+            articulo.setIdEstado(4);
         }
 
-        // 5. Actualizar estado del préstamo
         prestamo.setIdEstado(dto.getIdEstado());
-
-        // 6. Actualizar estado del artículo
-        Articulos articulo = prestamo.getArticulo();
-        articulo.setIdEstado(dto.getIdEstado()); // 3 = Aprobado o 4 = Rechazado
+        prestamosRepository.save(prestamo);
         articulosRepository.save(articulo);
 
-        Prestamos prestamoActualizado = prestamosRepository.save(prestamo);
-
-        return mapPrestamoToDto(prestamoActualizado);
+        return mapPrestamoToDto(prestamo);
     }
 
-    // ========== LISTAR TODOS LOS PRÉSTAMOS ==========
+    // ==================== CÁLCULO DEL MONTO TOTAL ====================
+
+    private BigDecimal calcularMontoConInteres(BigDecimal montoPrestamo, BigDecimal tasaInteres, Integer plazoMeses) {
+        BigDecimal interes = montoPrestamo
+                .multiply(tasaInteres)
+                .multiply(BigDecimal.valueOf(plazoMeses))
+                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        return montoPrestamo.add(interes);
+    }
+
+    // ==================== OTROS MÉTODOS ====================
+
     public List<PrestamoResponseDTO> listarPrestamos() {
-        List<Prestamos> prestamos = prestamosRepository.findAll();
-        return prestamos.stream().map(this::mapPrestamoToDto).collect(Collectors.toList());
+        return prestamosRepository.findAll().stream().map(this::mapPrestamoToDto).collect(Collectors.toList());
     }
 
-    // ========== OBTENER PRÉSTAMO POR ID ==========
     public PrestamoResponseDTO obtenerPrestamoPorId(Integer idPrestamo) {
         Prestamos prestamo = prestamosRepository.findById(idPrestamo)
                 .orElseThrow(() -> new RuntimeException("Préstamo no encontrado"));
         return mapPrestamoToDto(prestamo);
     }
 
-    // ========== MAPPERS ==========
-    private ArticuloSolicitadoDTO mapArticuloToSolicitadoDto(Articulos a) {
-        ArticuloSolicitadoDTO dto = new ArticuloSolicitadoDTO();
+    private String generarUrlDocumentoContrato(Prestamos prestamo) {
+        return "https://casadeempeno.com/contratos/contrato_" +
+                prestamo.getIdPrestamo() + "_" +
+                prestamo.getCliente().getIdCliente() + ".pdf";
+    }
+
+    private TipoArticuloResponseDTO mapTipoArticuloToDto(TiposArticulos t) {
+        TipoArticuloResponseDTO dto = new TipoArticuloResponseDTO();
+        dto.setIdTipoArticulo(t.getIdTipoArticulo());
+        dto.setNombreTipoArticulo(t.getNombreTipoArticulo());
+        dto.setEstado(t.getEstadoArticulo().getTipoEstadoArticulo());
+        dto.setPorcentajeMin(t.getParametroAvaluo().getPorcentajeMin());
+        dto.setPorcentajeMax(t.getParametroAvaluo().getPorcentajeMax());
+        return dto;
+    }
+
+    private TipoArticuloSimpleDTO mapTipoArticuloSimpleToDto(TiposArticulos t) {
+        TipoArticuloSimpleDTO dto = new TipoArticuloSimpleDTO();
+        dto.setIdTipoArticulo(t.getIdTipoArticulo());
+        dto.setNombreTipoArticulo(t.getNombreTipoArticulo());
+        dto.setPorcentajeMin(t.getParametroAvaluo().getPorcentajeMin());
+        dto.setPorcentajeMax(t.getParametroAvaluo().getPorcentajeMax());
+        return dto;
+    }
+
+    private ArticuloResponseDTO mapArticuloToDto(Articulos a, String urlImagen) {
+        ArticuloResponseDTO dto = new ArticuloResponseDTO();
         dto.setIdArticulo(a.getIdArticulo());
+        dto.setIdCliente(a.getCliente().getIdCliente());
+        dto.setNombreCliente(a.getCliente().getNombreCliente() + " " + a.getCliente().getApellidoCliente());
+        dto.setIdEstado(a.getIdEstado());
+        dto.setEstadoArticulo(a.getEstadoArticulo());
         dto.setNombreArticulo(a.getNombreArticulo());
         dto.setDescripcion(a.getDescripcion());
         dto.setPrecioArticulo(a.getPrecioArticulo());
-        dto.setPrecioAvaluo(a.getPrecioAvaluo());
-        dto.setEstadoArticulo(a.getEstadoArticulo());
-        dto.setNombreCliente(a.getCliente().getNombreCliente() + " " + a.getCliente().getApellidoCliente());
-        dto.setEmailCliente(a.getCliente().getEmailCliente());
-        dto.setIdCliente(a.getCliente().getIdCliente());
-        dto.setTipoArticulo(a.getTipoArticulo().getNombreTipoArticulo());
-
-        // Obtener imagen
-        List<ImagenesArticulos> imagenes = imagenesArticulosRepository.findByArticuloId(a.getIdArticulo());
-        if (!imagenes.isEmpty()) {
-            dto.setUrlImagen(imagenes.get(0).getUrlImagen());
-        }
-
+        dto.setTipoArticulo(mapTipoArticuloSimpleToDto(a.getTipoArticulo()));
+        dto.setUrlImagen(urlImagen);
         return dto;
     }
 
@@ -178,6 +278,7 @@ public class PrestamosService {
         dto.setNombreEstado(obtenerNombreEstado(p.getIdEstado()));
         dto.setTasaInteres(p.getTasaInteres());
         dto.setMontoPrestamo(p.getMontoPrestamo());
+        dto.setSaldoAdeudado(p.getSaldoAdeudado()); // ✨ AGREGAR ESTA LÍNEA
         dto.setPorcentajeAvaluo(p.getPorcentajeAvaluo());
         dto.setPlazoMeses(p.getPlazoMeses());
         dto.setFechaInicio(p.getFechaInicio());
@@ -193,7 +294,25 @@ public class PrestamosService {
             case 2: return "En Evaluación";
             case 3: return "Aprobado";
             case 4: return "Rechazado";
+            case 5: return "En Préstamo";
             default: return "Desconocido";
         }
+    }
+
+    private ArticuloSolicitadoDTO mapArticuloToSolicitadoDto(Articulos a) {
+        ArticuloSolicitadoDTO dto = new ArticuloSolicitadoDTO();
+        dto.setIdArticulo(a.getIdArticulo());
+        dto.setNombreArticulo(a.getNombreArticulo());
+        dto.setDescripcion(a.getDescripcion());
+        dto.setPrecioArticulo(a.getPrecioArticulo());
+        dto.setPrecioAvaluo(a.getPrecioAvaluo());
+        dto.setEstadoArticulo(a.getEstadoArticulo());
+        dto.setNombreCliente(a.getCliente().getNombreCliente() + " " + a.getCliente().getApellidoCliente());
+        dto.setEmailCliente(a.getCliente().getEmailCliente());
+        dto.setIdCliente(a.getCliente().getIdCliente());
+        dto.setTipoArticulo(a.getTipoArticulo().getNombreTipoArticulo());
+        List<ImagenesArticulos> imagenes = imagenesArticulosRepository.findByArticuloId(a.getIdArticulo());
+        if (!imagenes.isEmpty()) dto.setUrlImagen(imagenes.get(0).getUrlImagen());
+        return dto;
     }
 }
