@@ -24,4 +24,8 @@ public interface PrestamosRepository extends JpaRepository<Prestamos, Integer> {
     // Buscar préstamo por id de artículo
     @Query("SELECT p FROM Prestamos p WHERE p.articulo.idArticulo = :idArticulo")
     Prestamos findByArticuloId(@Param("idArticulo") Integer idArticulo);
+
+    // Buscar préstamos activos de un cliente (estado 5 = En Préstamo)
+    @Query("SELECT p FROM Prestamos p WHERE p.cliente.idCliente = :idCliente AND p.idEstado = 5")
+    List<Prestamos> findPrestamosActivosCliente(@Param("idCliente") Integer idCliente);
 }

@@ -6,6 +6,7 @@ import com.online.tienda_empeno.utils.JwtUtil;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.HashMap;
 import java.util.List;
@@ -28,7 +29,12 @@ public class CompraArticulosController {
 
     @PostMapping("/registrar-articulo-vender")
     public ResponseEntity<?> registrarArticuloParaVender(
-            @RequestBody ArticuloVenderDTO dto,
+            @RequestParam("idTipoArticulo") Integer idTipoArticulo,
+            @RequestParam("nombreArticulo") String nombreArticulo,
+            @RequestParam("descripcion") String descripcion,
+            @RequestParam("estadoArticulo") String estadoArticulo,
+            @RequestParam("precioArticulo") java.math.BigDecimal precioArticulo,
+            @RequestParam("imagenes") MultipartFile[] imagenes,
             @RequestHeader("Authorization") String authHeader) {
         try {
             String token = authHeader.replace("Bearer ", "");
@@ -44,7 +50,16 @@ public class CompraArticulosController {
             }
 
             Integer idCliente = jwtUtil.extractIdUsuario(token);
-            ArticuloResponseDTO resultado = compraArticulosService.registrarArticuloParaVender(dto, idCliente);
+
+            // Crear DTO con los parámetros recibidos
+            ArticuloVenderDTO dto = new ArticuloVenderDTO();
+            dto.setIdTipoArticulo(idTipoArticulo);
+            dto.setNombreArticulo(nombreArticulo);
+            dto.setDescripcion(descripcion);
+            dto.setEstadoArticulo(estadoArticulo);
+            dto.setPrecioArticulo(precioArticulo);
+
+            ArticuloResponseDTO resultado = compraArticulosService.registrarArticuloParaVender(dto, idCliente, imagenes);
 
             Map<String, Object> response = new HashMap<>();
             response.put("mensaje", "Artículo registrado exitosamente. Será evaluado por nuestro equipo.");

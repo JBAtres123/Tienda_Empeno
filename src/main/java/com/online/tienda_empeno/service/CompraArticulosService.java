@@ -5,6 +5,7 @@ import com.online.tienda_empeno.entity.*;
 import com.online.tienda_empeno.repository.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -19,25 +20,29 @@ public class CompraArticulosService {
     private final AdministradorRepository administradorRepository;
     private final ImagenesArticulosRepository imagenesArticulosRepository;
     private final TiposArticulosRepository tiposArticulosRepository;
+    private final FileStorageService fileStorageService;
 
     public CompraArticulosService(CompraArticuloDelClienteRepository compraArticuloRepository,
                                   ArticulosRepository articulosRepository,
                                   ClienteRepository clienteRepository,
                                   AdministradorRepository administradorRepository,
                                   ImagenesArticulosRepository imagenesArticulosRepository,
-                                  TiposArticulosRepository tiposArticulosRepository) {
+                                  TiposArticulosRepository tiposArticulosRepository,
+                                  FileStorageService fileStorageService) {
         this.compraArticuloRepository = compraArticuloRepository;
         this.articulosRepository = articulosRepository;
         this.clienteRepository = clienteRepository;
         this.administradorRepository = administradorRepository;
         this.imagenesArticulosRepository = imagenesArticulosRepository;
         this.tiposArticulosRepository = tiposArticulosRepository;
+        this.fileStorageService = fileStorageService;
     }
 
     // ==================== CLIENTE: REGISTRAR ARTÍCULO PARA VENDER ====================
 
     @Transactional
-    public ArticuloResponseDTO registrarArticuloParaVender(ArticuloVenderDTO dto, Integer idCliente) {
+    public ArticuloResponseDTO registrarArticuloParaVender(ArticuloVenderDTO dto, Integer idCliente,
+                                                            MultipartFile[] imagenes) {
         Cliente cliente = clienteRepository.findById(idCliente)
                 .orElseThrow(() -> new RuntimeException("Cliente no encontrado con id " + idCliente));
 
@@ -53,6 +58,15 @@ public class CompraArticulosService {
             throw new RuntimeException("El estado del artículo debe ser un valor entre 1 y 10");
         }
 
+        // Validar que se envíen al menos 3 imágenes
+        if (imagenes == null || imagenes.length < 3) {
+            throw new RuntimeException("Debes agregar al menos 3 imágenes del artículo");
+        }
+
+        if (imagenes.length > 10) {
+            throw new RuntimeException("El máximo de imágenes permitidas es 10");
+        }
+
         // Crear el artículo con estado 12 (A Confirmar Venta)
         Articulos articulo = new Articulos();
         articulo.setCliente(cliente);
@@ -66,11 +80,24 @@ public class CompraArticulosService {
 
         Articulos articuloGuardado = articulosRepository.save(articulo);
 
-        // Guardar imagen
-        ImagenesArticulos imagen = new ImagenesArticulos();
-        imagen.setArticulo(articuloGuardado);
-        imagen.setUrlImagen(dto.getUrlImagen());
-        ImagenesArticulos imagenGuardada = imagenesArticulosRepository.save(imagen);
+        // Guardar múltiples imágenes
+        String primeraUrlImagen = null;
+        for (MultipartFile imagen : imagenes) {
+            try {
+                String urlImagen = fileStorageService.guardarImagen(imagen);
+
+                ImagenesArticulos imagenEntity = new ImagenesArticulos();
+                imagenEntity.setArticulo(articuloGuardado);
+                imagenEntity.setUrlImagen(urlImagen);
+                imagenesArticulosRepository.save(imagenEntity);
+
+                if (primeraUrlImagen == null) {
+                    primeraUrlImagen = urlImagen;
+                }
+            } catch (Exception e) {
+                throw new RuntimeException("Error al guardar imagen: " + e.getMessage());
+            }
+        }
 
         // Crear registro de compra con estado 13 (En Espera)
         CompraArticuloDelCliente compra = new CompraArticuloDelCliente();
@@ -78,7 +105,7 @@ public class CompraArticulosService {
         compra.setIdEstado(13); // En Espera
         compraArticuloRepository.save(compra);
 
-        return mapArticuloToDto(articuloGuardado, imagenGuardada.getUrlImagen());
+        return mapArticuloToDto(articuloGuardado, primeraUrlImagen);
     }
 
     // ==================== ADMIN: LISTAR ARTÍCULOS PENDIENTES DE COMPRA ====================

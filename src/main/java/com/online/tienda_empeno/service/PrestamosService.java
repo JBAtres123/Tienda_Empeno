@@ -315,4 +315,11 @@ public class PrestamosService {
         if (!imagenes.isEmpty()) dto.setUrlImagen(imagenes.get(0).getUrlImagen());
         return dto;
     }
+
+    // ==================== LISTAR MIS PRÉSTAMOS ACTIVOS ====================
+
+    public List<PrestamoResponseDTO> listarMisPrestamoActivos(Integer idCliente) {
+        List<Prestamos> prestamos = prestamosRepository.findPrestamosActivosCliente(idCliente);
+        return prestamos.stream().map(this::mapPrestamoToDto).collect(Collectors.toList());
+    }
 }
