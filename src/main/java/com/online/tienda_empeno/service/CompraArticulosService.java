@@ -300,6 +300,23 @@ public class CompraArticulosService {
         dto.setPrecioCompra(c.getPrecioCompra());
         dto.setFechaCreacion(c.getFechaCreacion());
 
+        // Agregar información del artículo
+        dto.setDescripcionArticulo(c.getArticulo().getDescripcion());
+        dto.setPrecioOfrecido(c.getArticulo().getPrecioArticulo());
+
+        // Obtener todas las imágenes del artículo
+        List<ImagenesArticulos> imagenes = imagenesArticulosRepository.findByArticuloId(c.getArticulo().getIdArticulo());
+        if (!imagenes.isEmpty()) {
+            // Primera imagen (compatibilidad)
+            dto.setUrlImagen(imagenes.get(0).getUrlImagen());
+
+            // Todas las imágenes para el carrusel
+            List<String> urlImagenes = imagenes.stream()
+                    .map(ImagenesArticulos::getUrlImagen)
+                    .collect(java.util.stream.Collectors.toList());
+            dto.setImagenes(urlImagenes);
+        }
+
         return dto;
     }
 

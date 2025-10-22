@@ -2,6 +2,7 @@ package com.online.tienda_empeno.dto;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 public class PrestamoResponseDTO {
     private Integer idPrestamo;
@@ -22,7 +23,9 @@ public class PrestamoResponseDTO {
     private BigDecimal precioArticulo;
     private BigDecimal precioAvaluo;
     private BigDecimal saldoAdeudado;
-
+    private String urlImagen;  // Primera imagen (compatibilidad)
+    private List<String> imagenes;  // Todas las imágenes
+    private String descripcionArticulo;
 
     public BigDecimal getSaldoAdeudado() {
         return saldoAdeudado;
@@ -83,4 +86,13 @@ public class PrestamoResponseDTO {
 
     public BigDecimal getPrecioAvaluo() { return precioAvaluo; }
     public void setPrecioAvaluo(BigDecimal precioAvaluo) { this.precioAvaluo = precioAvaluo; }
+
+    public String getUrlImagen() { return urlImagen; }
+    public void setUrlImagen(String urlImagen) { this.urlImagen = urlImagen; }
+
+    public String getDescripcionArticulo() { return descripcionArticulo; }
+    public void setDescripcionArticulo(String descripcionArticulo) { this.descripcionArticulo = descripcionArticulo; }
+
+    public List<String> getImagenes() { return imagenes; }
+    public void setImagenes(List<String> imagenes) { this.imagenes = imagenes; }
 }

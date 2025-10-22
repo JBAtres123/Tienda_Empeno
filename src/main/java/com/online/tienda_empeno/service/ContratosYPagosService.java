@@ -168,6 +168,7 @@ public class ContratosYPagosService {
         PagosPrestamo pago = new PagosPrestamo();
         pago.setPrestamo(prestamo);
         pago.setMetodoPago(metodoPago);
+        pago.setAdministrador(prestamo.getAdministrador()); // Asignar admin que aprobó el préstamo
         pago.setMonto(montoTotal);
         pago.setMesPago(LocalDate.now());
         PagosPrestamo pagoGuardado = pagosPrestamoRepository.save(pago);
@@ -269,22 +270,30 @@ public class ContratosYPagosService {
             montoTotal = prestamo.getSaldoAdeudado();
         }
 
+        System.out.println("DEBUG: Creando pago - Monto: " + montoTotal + ", Saldo adeudado actual: " + prestamo.getSaldoAdeudado());
+
         PagosPrestamo pago = new PagosPrestamo();
         pago.setPrestamo(prestamo);
         pago.setMetodoPago(metodoPago);
         pago.setAdministrador(cobrador);
         pago.setMonto(montoTotal);
         pago.setMesPago(LocalDate.now());
+
+        System.out.println("DEBUG: Guardando pago...");
         PagosPrestamo pagoGuardado = pagosPrestamoRepository.save(pago);
+        System.out.println("DEBUG: Pago guardado exitosamente con ID: " + pagoGuardado.getIdPagoPrestamo());
 
         // ✨ RESTAR DEL SALDO ADEUDADO
+        System.out.println("DEBUG: Calculando nuevo saldo...");
         BigDecimal nuevoSaldo = prestamo.getSaldoAdeudado().subtract(montoTotal);
+        System.out.println("DEBUG: Nuevo saldo: " + nuevoSaldo);
         prestamo.setSaldoAdeudado(nuevoSaldo);
 
         boolean prestamoCancelado = false;
 
         // ✨ SI EL SALDO LLEGA A 0, CAMBIAR ESTADOS
         if (nuevoSaldo.compareTo(BigDecimal.ZERO) <= 0) {
+            System.out.println("DEBUG: Préstamo liquidado, actualizando estados...");
             // Artículo a estado 7 (Recuperado)
             Articulos articulo = prestamo.getArticulo();
             articulo.setIdEstado(7);
@@ -295,62 +304,76 @@ public class ContratosYPagosService {
             prestamoCancelado = true;
         }
 
+        System.out.println("DEBUG: Guardando préstamo actualizado...");
         prestamosRepository.save(prestamo);
+        System.out.println("DEBUG: Préstamo guardado exitosamente");
 
-        LocalDate fechaVisita = prestamoCancelado ? null : LocalDate.now().plusDays(15);
+        // Siempre asignar fecha de visita para pago en efectivo (el cobrador debe ir a cobrar)
+        LocalDate fechaVisita = LocalDate.now().plusDays(15);
         String comentario;
 
         if (prestamoCancelado) {
             comentario = String.format(
                     "¡PRÉSTAMO LIQUIDADO!\n\n" +
                             "Estimado/a %s, felicitaciones por completar el pago de su préstamo.\n\n" +
-                            "Último pago: $%.2f\n" +
-                            "Saldo final: $0.00\n\n" +
+                            "Nuestro cobrador visitará su domicilio el día %s para cobrar el último pago.\n\n" +
+                            "Último pago: Q%.2f\n" +
+                            "Saldo final: Q0.00\n\n" +
                             "Ya puede recuperar su artículo en nuestra sucursal.\n\n" +
                             "Casa de Empeño - Atención al Cliente",
                     prestamo.getCliente().getNombreCliente(),
+                    fechaVisita.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
                     montoTotal
             );
         } else {
             comentario = String.format(
                     "Estimado/a %s, nuestro cobrador visitará su domicilio el día %s.\n\n" +
-                            "Cuota mensual: $%.2f\n%s" +
-                            "Monto pagado: $%.2f\n" +
-                            "Saldo restante: $%.2f\n\n" +
+                            "Cuota mensual: Q%.2f\n%s" +
+                            "Monto a pagar: Q%.2f\n" +
+                            "Saldo restante: Q%.2f\n\n" +
                             "Casa de Empeño - Atención al Cliente",
                     prestamo.getCliente().getNombreCliente(),
                     fechaVisita.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
                     cuotaMensual,
-                    montoMora.compareTo(BigDecimal.ZERO) > 0 ? String.format("Mora por atraso: $%.2f\n", montoMora) : "",
+                    montoMora.compareTo(BigDecimal.ZERO) > 0 ? String.format("Mora por atraso: Q%.2f\n", montoMora) : "",
                     montoTotal,
                     nuevoSaldo
             );
         }
 
+        System.out.println("DEBUG: Creando cobranza...");
         Cobranza cobranza = new Cobranza();
         cobranza.setPagoPrestamo(pagoGuardado);
         cobranza.setFechaDeVisita(fechaVisita);
         cobranza.setComentario(comentario);
         Cobranza cobranzaGuardada = cobranzaRepository.save(cobranza);
+        System.out.println("DEBUG: Cobranza guardada con ID: " + cobranzaGuardada.getIdCobranza());
 
+        System.out.println("DEBUG: Obteniendo departamento del cliente...");
         Integer idDepartamento = obtenerIdDepartamentoCliente(prestamo.getCliente());
+        System.out.println("DEBUG: ID Departamento: " + idDepartamento);
         String rutaAsignada = prestamoCancelado ? "PRÉSTAMO LIQUIDADO" : generarRutaPorDepartamento(idDepartamento);
+        System.out.println("DEBUG: Ruta asignada: " + rutaAsignada);
 
         Departamento departamento = null;
         if (idDepartamento != null) {
             departamento = departamentoRepository.findById(idDepartamento).orElse(null);
         }
 
+        System.out.println("DEBUG: Creando ruta de cobranza...");
         RutaDeCobranza ruta = new RutaDeCobranza();
         ruta.setCobranza(cobranzaGuardada);
         ruta.setDepartamento(departamento);
         ruta.setAsignacionRuta(rutaAsignada);
         rutaDeCobranzaRepository.save(ruta);
+        System.out.println("DEBUG: Ruta de cobranza guardada exitosamente");
 
+        System.out.println("DEBUG: Creando DTO de respuesta...");
         CobranzaResponseDTO cobranzaDTO = mapCobranzaToDto(cobranzaGuardada, rutaAsignada);
         cobranzaDTO.setSaldoRestante(nuevoSaldo);
         cobranzaDTO.setPrestamoCancelado(prestamoCancelado);
 
+        System.out.println("DEBUG: Proceso completado exitosamente. Retornando DTO.");
         return cobranzaDTO;
     }
 

@@ -3,6 +3,7 @@ package com.online.tienda_empeno.dto;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 public class CompraResponseDTO {
     private Integer idCompra;
@@ -18,6 +19,10 @@ public class CompraResponseDTO {
     private LocalDate fechaCompra;
     private BigDecimal precioCompra;
     private LocalDateTime fechaCreacion;
+    private String urlImagen;  // Primera imagen (compatibilidad)
+    private List<String> imagenes;  // Todas las imágenes
+    private String descripcionArticulo;
+    private BigDecimal precioOfrecido;
 
     // Getters y Setters
     public Integer getIdCompra() {
@@ -122,5 +127,37 @@ public class CompraResponseDTO {
 
     public void setFechaCreacion(LocalDateTime fechaCreacion) {
         this.fechaCreacion = fechaCreacion;
+    }
+
+    public String getUrlImagen() {
+        return urlImagen;
+    }
+
+    public void setUrlImagen(String urlImagen) {
+        this.urlImagen = urlImagen;
+    }
+
+    public List<String> getImagenes() {
+        return imagenes;
+    }
+
+    public void setImagenes(List<String> imagenes) {
+        this.imagenes = imagenes;
+    }
+
+    public String getDescripcionArticulo() {
+        return descripcionArticulo;
+    }
+
+    public void setDescripcionArticulo(String descripcionArticulo) {
+        this.descripcionArticulo = descripcionArticulo;
+    }
+
+    public BigDecimal getPrecioOfrecido() {
+        return precioOfrecido;
+    }
+
+    public void setPrecioOfrecido(BigDecimal precioOfrecido) {
+        this.precioOfrecido = precioOfrecido;
     }
 }

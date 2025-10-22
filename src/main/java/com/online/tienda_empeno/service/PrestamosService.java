@@ -285,6 +285,23 @@ public class PrestamosService {
         dto.setFechaVencimiento(p.getFechaVencimiento());
         dto.setPrecioArticulo(p.getArticulo().getPrecioArticulo());
         dto.setPrecioAvaluo(p.getArticulo().getPrecioAvaluo());
+
+        // Agregar descripción del artículo
+        dto.setDescripcionArticulo(p.getArticulo().getDescripcion());
+
+        // Obtener todas las imágenes del artículo
+        List<ImagenesArticulos> imagenes = imagenesArticulosRepository.findByArticuloId(p.getArticulo().getIdArticulo());
+        if (!imagenes.isEmpty()) {
+            // Primera imagen (compatibilidad)
+            dto.setUrlImagen(imagenes.get(0).getUrlImagen());
+
+            // Todas las imágenes para el carrusel
+            List<String> urlImagenes = imagenes.stream()
+                    .map(ImagenesArticulos::getUrlImagen)
+                    .collect(java.util.stream.Collectors.toList());
+            dto.setImagenes(urlImagenes);
+        }
+
         return dto;
     }
 

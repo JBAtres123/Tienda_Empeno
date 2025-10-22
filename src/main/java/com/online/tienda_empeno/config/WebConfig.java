@@ -8,13 +8,11 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
-    @Value("${file.upload-dir}")
-    private String uploadDir;
-
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        // Servir archivos estáticos desde la carpeta uploads
         registry.addResourceHandler("/uploads/**")
-                .addResourceLocations("file:" + uploadDir + "/");
+                .addResourceLocations("file:uploads/");
     }
 
     // ⚠️ No necesitamos addCorsMappings, lo maneja SecurityConfig con CorsFilter
