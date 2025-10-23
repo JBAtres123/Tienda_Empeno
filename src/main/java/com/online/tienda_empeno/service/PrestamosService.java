@@ -328,8 +328,20 @@ public class PrestamosService {
         dto.setEmailCliente(a.getCliente().getEmailCliente());
         dto.setIdCliente(a.getCliente().getIdCliente());
         dto.setTipoArticulo(a.getTipoArticulo().getNombreTipoArticulo());
+
+        // Obtener todas las imágenes del artículo
         List<ImagenesArticulos> imagenes = imagenesArticulosRepository.findByArticuloId(a.getIdArticulo());
-        if (!imagenes.isEmpty()) dto.setUrlImagen(imagenes.get(0).getUrlImagen());
+        if (!imagenes.isEmpty()) {
+            // Primera imagen (compatibilidad)
+            dto.setUrlImagen(imagenes.get(0).getUrlImagen());
+
+            // Todas las imágenes para el carrusel
+            List<String> urlImagenes = imagenes.stream()
+                    .map(ImagenesArticulos::getUrlImagen)
+                    .collect(Collectors.toList());
+            dto.setImagenes(urlImagenes);
+        }
+
         return dto;
     }
 

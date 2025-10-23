@@ -1,6 +1,7 @@
 package com.online.tienda_empeno.dto;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 public class ArticuloSolicitadoDTO {
     private Integer idArticulo;
@@ -13,7 +14,8 @@ public class ArticuloSolicitadoDTO {
     private String emailCliente;
     private Integer idCliente;
     private String tipoArticulo;
-    private String urlImagen;
+    private String urlImagen;  // Primera imagen (compatibilidad)
+    private List<String> imagenes;  // Todas las imágenes para el carrusel
 
     // Getters y Setters
     public Integer getIdArticulo() { return idArticulo; }
@@ -48,4 +50,7 @@ public class ArticuloSolicitadoDTO {
 
     public String getUrlImagen() { return urlImagen; }
     public void setUrlImagen(String urlImagen) { this.urlImagen = urlImagen; }
+
+    public List<String> getImagenes() { return imagenes; }
+    public void setImagenes(List<String> imagenes) { this.imagenes = imagenes; }
 }
