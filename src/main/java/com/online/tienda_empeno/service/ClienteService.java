@@ -224,4 +224,31 @@ public class ClienteService {
 
         return dto;
     }
+
+    public void cambiarContraseña(Integer idCliente, CambioContraseñaDTO dto) {
+        // 1. Buscar cliente por id
+        Cliente cliente = clienteRepository.findById(idCliente)
+                .orElseThrow(() -> new RuntimeException("Cliente no encontrado con id " + idCliente));
+
+        // 2. Verificar contraseña actual
+        Contraseña contraseñaActual = cliente.getContraseña();
+        if (contraseñaActual == null || !contraseñaActual.getContraseña().equals(dto.getContraseñaActual())) {
+            throw new RuntimeException("La contraseña actual no es correcta");
+        }
+
+        // 3. Validar que la nueva contraseña sea diferente
+        if (dto.getContraseñaActual().equals(dto.getContraseñaNueva())) {
+            throw new RuntimeException("La nueva contraseña debe ser diferente a la actual");
+        }
+
+        // 4. Validar longitud de la nueva contraseña
+        if (dto.getContraseñaNueva() == null || dto.getContraseñaNueva().length() < 6) {
+            throw new RuntimeException("La nueva contraseña debe tener al menos 6 caracteres");
+        }
+
+        // 5. Actualizar contraseña
+        contraseñaActual.setContraseña(dto.getContraseñaNueva());
+        contraseñaActual.setFechaCreacion(new Date());
+        contraseñaRepository.save(contraseñaActual);
+    }
 }

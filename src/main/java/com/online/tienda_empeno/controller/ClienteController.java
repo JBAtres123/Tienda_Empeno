@@ -53,5 +53,18 @@ public class ClienteController {
         ClienteDetalleDTO cliente = clienteService.obtenerClienteDetalle(idCliente);
         return ResponseEntity.ok(cliente);
     }
+
+    // ---------------- Cambiar contraseña ----------------
+    @PutMapping("/{idCliente}/cambiar-contraseña")
+    public ResponseEntity<java.util.Map<String, String>> cambiarContraseña(
+            @PathVariable Integer idCliente,
+            @RequestBody CambioContraseñaDTO dto) {
+        try {
+            clienteService.cambiarContraseña(idCliente, dto);
+            return ResponseEntity.ok(java.util.Map.of("message", "Contraseña actualizada correctamente"));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(java.util.Map.of("message", e.getMessage()));
+        }
+    }
 }
 
