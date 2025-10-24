@@ -79,6 +79,7 @@ public class ClienteService {
         cliente.setNombreCliente(dto.getNombreCliente());
         cliente.setApellidoCliente(dto.getApellidoCliente());
         cliente.setEmailCliente(dto.getEmailCliente());
+        cliente.setTelefonoCliente(dto.getTelefonoCliente());
 
         Cliente saved = clienteRepository.save(cliente);
         return mapClienteToDto(saved);
@@ -187,6 +188,7 @@ public class ClienteService {
         dto.setApellidoCliente(cliente.getApellidoCliente());
         dto.setEmailCliente(cliente.getEmailCliente());
         dto.setNumeroDocumento(cliente.getNumeroDocumento());
+        dto.setTelefonoCliente(cliente.getTelefonoCliente());
 
         if (cliente.getTipoDocumento() != null) {
             dto.setTipoDocumento(cliente.getTipoDocumento().getNombre());

@@ -38,6 +38,9 @@ public class Cliente {
     @Column(name = "email_cliente", nullable = false, length = 30)
     private String emailCliente;
 
+    @Column(name = "telefono_cliente", length = 8)
+    private String telefonoCliente;
+
     // Getters y Setters
     public Integer getIdCliente() { return idCliente; }
     public void setIdCliente(Integer idCliente) { this.idCliente = idCliente; }
@@ -65,6 +68,9 @@ public class Cliente {
 
     public String getEmailCliente() { return emailCliente; }
     public void setEmailCliente(String emailCliente) { this.emailCliente = emailCliente; }
+
+    public String getTelefonoCliente() { return telefonoCliente; }
+    public void setTelefonoCliente(String telefonoCliente) { this.telefonoCliente = telefonoCliente; }
 }
 
 

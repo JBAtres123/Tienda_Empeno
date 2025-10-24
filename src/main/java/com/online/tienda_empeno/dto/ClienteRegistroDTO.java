@@ -6,6 +6,7 @@ public class ClienteRegistroDTO {
     private String nombreCliente;
     private String apellidoCliente;
     private String emailCliente;
+    private String telefonoCliente;
     private String contraseña;
 
     // Campo para enlazar con dirección creada antes
@@ -26,6 +27,9 @@ public class ClienteRegistroDTO {
 
     public String getEmailCliente() { return emailCliente; }
     public void setEmailCliente(String emailCliente) { this.emailCliente = emailCliente; }
+
+    public String getTelefonoCliente() { return telefonoCliente; }
+    public void setTelefonoCliente(String telefonoCliente) { this.telefonoCliente = telefonoCliente; }
 
     public String getContraseña() { return contraseña; }
     public void setContraseña(String contraseña) { this.contraseña = contraseña; }
