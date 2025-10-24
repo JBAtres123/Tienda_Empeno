@@ -433,6 +433,7 @@ public class TiendaService {
         dto.setNombreProducto(a.getNombreArticulo());
         dto.setDescripcion(a.getDescripcion());
         dto.setPrecioVentaTienda(a.getPrecioArticulo());
+        dto.setPrecioCompra(a.getPrecioArticulo()); // Precio con el que se le compró al cliente
         dto.setTipoArticulo(a.getTipoArticulo().getNombreTipoArticulo());
         dto.setEstadoFisico(a.getEstadoArticulo());
 

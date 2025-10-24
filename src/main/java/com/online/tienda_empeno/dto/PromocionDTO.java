@@ -7,9 +7,13 @@ public class PromocionDTO {
     private Integer idPromocion;
     private String nombrePromocion;
     private String descripcion;
+    private String tipoPromocion; // CATEGORIA, PRODUCTO, GENERAL
     private String tipoDescuento;
     private BigDecimal valorDescuento;
     private BigDecimal descuentoAplicado; // Monto real descontado
+    private Integer idTipoArticulo; // Si es CATEGORIA
+    private Integer idProductoTienda; // Si es PRODUCTO
+    private Boolean activo;
     private LocalDateTime fechaInicio;
     private LocalDateTime fechaFin;
 
@@ -76,5 +80,37 @@ public class PromocionDTO {
 
     public void setFechaFin(LocalDateTime fechaFin) {
         this.fechaFin = fechaFin;
+    }
+
+    public String getTipoPromocion() {
+        return tipoPromocion;
+    }
+
+    public void setTipoPromocion(String tipoPromocion) {
+        this.tipoPromocion = tipoPromocion;
+    }
+
+    public Integer getIdTipoArticulo() {
+        return idTipoArticulo;
+    }
+
+    public void setIdTipoArticulo(Integer idTipoArticulo) {
+        this.idTipoArticulo = idTipoArticulo;
+    }
+
+    public Integer getIdProductoTienda() {
+        return idProductoTienda;
+    }
+
+    public void setIdProductoTienda(Integer idProductoTienda) {
+        this.idProductoTienda = idProductoTienda;
+    }
+
+    public Boolean getActivo() {
+        return activo;
+    }
+
+    public void setActivo(Boolean activo) {
+        this.activo = activo;
     }
 }

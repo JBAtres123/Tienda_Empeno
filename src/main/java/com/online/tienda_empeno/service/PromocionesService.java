@@ -167,10 +167,20 @@ public class PromocionesService {
         dto.setIdPromocion(p.getIdPromocion());
         dto.setNombrePromocion(p.getNombrePromocion());
         dto.setDescripcion(p.getDescripcion());
+        dto.setTipoPromocion(p.getTipoPromocion());
         dto.setTipoDescuento(p.getTipoDescuento());
         dto.setValorDescuento(p.getValorDescuento());
+        dto.setActivo(p.getActivo());
         dto.setFechaInicio(p.getFechaInicio());
         dto.setFechaFin(p.getFechaFin());
+
+        // Campos condicionales según el tipo
+        if (p.getTipoArticulo() != null) {
+            dto.setIdTipoArticulo(p.getTipoArticulo().getIdTipoArticulo());
+        }
+        if (p.getProductoTienda() != null) {
+            dto.setIdProductoTienda(p.getProductoTienda().getIdProductoTienda());
+        }
 
         return dto;
     }

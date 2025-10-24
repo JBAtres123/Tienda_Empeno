@@ -47,13 +47,7 @@ public class FileStorageService {
             throw new IOException("El archivo excede el tamaño máximo permitido de 10MB");
         }
 
-        // Validar tipo MIME
-        String contentType = archivo.getContentType();
-        if (contentType == null || !TIPOS_PERMITIDOS.contains(contentType.toLowerCase())) {
-            throw new IOException("Tipo de archivo no permitido. Solo se aceptan imágenes (JPEG, PNG, WebP, GIF)");
-        }
-
-        // Validar extensión
+        // Validar extensión primero
         String nombreOriginal = archivo.getOriginalFilename();
         if (nombreOriginal == null || !nombreOriginal.contains(".")) {
             throw new IOException("El archivo no tiene una extensión válida");
@@ -63,6 +57,16 @@ public class FileStorageService {
         if (!EXTENSIONES_PERMITIDAS.contains(extension)) {
             throw new IOException("Extensión de archivo no permitida. Solo se aceptan: " + String.join(", ", EXTENSIONES_PERMITIDAS));
         }
+
+        // Validar tipo MIME (más flexible - si la extensión es válida, permitir)
+        String contentType = archivo.getContentType();
+        if (contentType != null && !contentType.isEmpty()) {
+            // Si hay contentType, verificar que sea de imagen
+            if (!contentType.toLowerCase().startsWith("image/")) {
+                throw new IOException("El archivo debe ser una imagen. Tipo recibido: " + contentType);
+            }
+        }
+        // Si contentType es null o vacío, confiamos en la extensión validada previamente
 
         // Crear directorio si no existe
         Path directorioSubida = Paths.get(uploadDir);

@@ -10,6 +10,7 @@ public class ProductoTiendaResponseDTO {
     private String nombreProducto; // nombre_editado o nombre_articulo
     private String descripcion; // descripcion_editada o descripcion original
     private BigDecimal precioVentaTienda;
+    private BigDecimal precioCompra; // Precio con el que se compró al cliente
     private String tipoArticulo;
     private String estadoFisico;
     private List<String> imagenes;
@@ -135,5 +136,13 @@ public class ProductoTiendaResponseDTO {
 
     public void setTotalValoraciones(Long totalValoraciones) {
         this.totalValoraciones = totalValoraciones;
+    }
+
+    public BigDecimal getPrecioCompra() {
+        return precioCompra;
+    }
+
+    public void setPrecioCompra(BigDecimal precioCompra) {
+        this.precioCompra = precioCompra;
     }
 }
