@@ -18,6 +18,35 @@ public class ProductoTiendaResponseDTO {
     // Valoraciones
     private Double calificacionPromedio;
     private Long totalValoraciones;
+    // Agregar estos campos al DTO existente:
+    private BigDecimal precioOriginal; // Precio sin descuento
+    private BigDecimal precioConDescuento; // Precio con descuento aplicado
+    private PromocionDTO promocionActiva; // Promoción aplicada
+
+    // Getters y Setters
+    public BigDecimal getPrecioOriginal() {
+        return precioOriginal;
+    }
+
+    public void setPrecioOriginal(BigDecimal precioOriginal) {
+        this.precioOriginal = precioOriginal;
+    }
+
+    public BigDecimal getPrecioConDescuento() {
+        return precioConDescuento;
+    }
+
+    public void setPrecioConDescuento(BigDecimal precioConDescuento) {
+        this.precioConDescuento = precioConDescuento;
+    }
+
+    public PromocionDTO getPromocionActiva() {
+        return promocionActiva;
+    }
+
+    public void setPromocionActiva(PromocionDTO promocionActiva) {
+        this.promocionActiva = promocionActiva;
+    }
 
     // Getters y Setters
     public Integer getIdProductoTienda() {

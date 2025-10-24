@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -28,6 +29,7 @@ public class TiendaService {
     private final ImagenesArticulosRepository imagenesArticulosRepository;
     private final DireccionesRepository direccionesRepository;
     private final MetodoPagoRepository metodoPagoRepository;
+    private final PromocionesRepository promocionesRepository;
 
     public TiendaService(ProductosTiendaRepository productosTiendaRepository,
                          PedidosRepository pedidosRepository,
@@ -39,7 +41,8 @@ public class TiendaService {
                          AdministradorRepository administradorRepository,
                          ImagenesArticulosRepository imagenesArticulosRepository,
                          DireccionesRepository direccionesRepository,
-                         MetodoPagoRepository metodoPagoRepository) {
+                         MetodoPagoRepository metodoPagoRepository,
+                         PromocionesRepository promocionesRepository) {
         this.productosTiendaRepository = productosTiendaRepository;
         this.pedidosRepository = pedidosRepository;
         this.detallePedidoRepository = detallePedidoRepository;
@@ -51,6 +54,7 @@ public class TiendaService {
         this.imagenesArticulosRepository = imagenesArticulosRepository;
         this.direccionesRepository = direccionesRepository;
         this.metodoPagoRepository = metodoPagoRepository;
+        this.promocionesRepository = promocionesRepository;
     }
 
     // ==================== ADMIN: LISTAR ARTÍCULOS PARA PREPARAR (estado 9) ====================
@@ -81,7 +85,6 @@ public class TiendaService {
             throw new RuntimeException("No tienes permiso para preparar productos");
         }
 
-        // Crear producto de tienda
         ProductosTienda producto = new ProductosTienda();
         producto.setArticulo(articulo);
         producto.setPrecioVentaTienda(dto.getPrecioVentaTienda());
@@ -91,21 +94,20 @@ public class TiendaService {
 
         ProductosTienda productoGuardado = productosTiendaRepository.save(producto);
 
-        // Cambiar estado del artículo a 17 (En Venta Tienda)
         articulo.setIdEstado(17);
         articulosRepository.save(articulo);
 
         return mapProductoToDTO(productoGuardado);
     }
 
-    // ==================== CLIENTE: VER CATÁLOGO (solo estado 17) ====================
+    // ==================== CLIENTE: VER CATÁLOGO CON PROMOCIONES ====================
 
     public List<ProductoTiendaResponseDTO> listarCatalogo() {
         List<ProductosTienda> productos = productosTiendaRepository.findProductosDisponibles();
         return productos.stream().map(this::mapProductoToDTO).collect(Collectors.toList());
     }
 
-    // ==================== CLIENTE: VER DETALLE DE PRODUCTO ====================
+    // ==================== CLIENTE: VER DETALLE DE PRODUCTO CON PROMOCIÓN ====================
 
     public ProductoTiendaResponseDTO verDetalleProducto(Integer idProducto) {
         ProductosTienda producto = productosTiendaRepository.findById(idProducto)
@@ -114,43 +116,42 @@ public class TiendaService {
         return mapProductoToDTO(producto);
     }
 
-    // ==================== CLIENTE: CREAR PEDIDO ====================
+    // ==================== CLIENTE: CREAR PEDIDO CON PROMOCIONES ====================
 
     @Transactional
     public PedidoResponseDTO crearPedido(CrearPedidoDTO dto, Integer idCliente) {
         Cliente cliente = clienteRepository.findById(idCliente)
                 .orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
 
-        // Crear pedido
         Pedidos pedido = new Pedidos();
         pedido.setCliente(cliente);
-        pedido.setIdEstado(19); // Pendiente
+        pedido.setIdEstado(19);
         pedido.setTotal(BigDecimal.ZERO);
 
         Pedidos pedidoGuardado = pedidosRepository.save(pedido);
 
-        // Agregar items al pedido
         BigDecimal total = BigDecimal.ZERO;
         for (ItemPedidoDTO item : dto.getItems()) {
             ProductosTienda producto = productosTiendaRepository.findByIdAndDisponible(item.getIdProductoTienda())
                     .orElseThrow(() -> new RuntimeException("Producto no disponible: " + item.getIdProductoTienda()));
 
-            // Validar que el cliente no esté comprando su propio artículo
             if (producto.getArticulo().getCliente().getIdCliente().equals(idCliente)) {
                 throw new RuntimeException("No puedes comprar tu propio artículo: " + producto.getArticulo().getNombreArticulo());
             }
 
+            // ✨ CALCULAR PRECIO CON PROMOCIÓN
+            BigDecimal precioFinal = calcularPrecioConPromocion(producto);
+
             DetallePedido detalle = new DetallePedido();
             detalle.setPedido(pedidoGuardado);
             detalle.setProductoTienda(producto);
-            detalle.setPrecioVenta(producto.getPrecioVentaTienda());
+            detalle.setPrecioVenta(precioFinal); // ✨ Guardar precio con descuento
             detalle.setCantidad(item.getCantidad());
             detallePedidoRepository.save(detalle);
 
-            total = total.add(producto.getPrecioVentaTienda().multiply(BigDecimal.valueOf(item.getCantidad())));
+            total = total.add(precioFinal.multiply(BigDecimal.valueOf(item.getCantidad())));
         }
 
-        // Actualizar total del pedido
         pedidoGuardado.setTotal(total);
         pedidosRepository.save(pedidoGuardado);
 
@@ -181,7 +182,6 @@ public class TiendaService {
         MetodoPago metodoPago = metodoPagoRepository.findById(dto.getIdMetodoPago())
                 .orElseThrow(() -> new RuntimeException("Método de pago no encontrado"));
 
-        // Registrar pago
         PagoPedido pago = new PagoPedido();
         pago.setPedido(pedido);
         pago.setCliente(cliente);
@@ -189,7 +189,7 @@ public class TiendaService {
         pago.setMetodoPago(metodoPago);
         pago.setMonto(pedido.getTotal());
 
-        if (dto.getIdMetodoPago() == 1) { // Tarjeta
+        if (dto.getIdMetodoPago() == 1) {
             pago.setReferencia("****" + dto.getNumeroTarjeta().substring(dto.getNumeroTarjeta().length() - 4));
         } else {
             pago.setReferencia("EFECTIVO-" + System.currentTimeMillis());
@@ -197,20 +197,17 @@ public class TiendaService {
 
         pagoPedidoRepository.save(pago);
 
-        // Actualizar pedido
-        pedido.setIdEstado(20); // Pagado / En Preparación
+        pedido.setIdEstado(20);
         pedido.setFechaPago(LocalDateTime.now());
-        pedido.setFechaEstimadaEntrega(LocalDate.now().plusDays(15)); // ✨ 15 días
+        pedido.setFechaEstimadaEntrega(LocalDate.now().plusDays(15));
         pedidosRepository.save(pedido);
 
-        // Cambiar estado y dueño de los artículos
+        // ✨ CAMBIAR DUEÑO Y ESTADO DE ARTÍCULOS
         List<DetallePedido> detalles = detallePedidoRepository.findByPedidoId(pedido.getIdPedido());
         for (DetallePedido detalle : detalles) {
             Articulos articulo = detalle.getProductoTienda().getArticulo();
-
-            // ✨ CAMBIAR DUEÑO DEL ARTÍCULO
             articulo.setCliente(cliente);
-            articulo.setIdEstado(18); // Vendido
+            articulo.setIdEstado(18);
             articulosRepository.save(articulo);
         }
 
@@ -247,13 +244,12 @@ public class TiendaService {
         Cliente cliente = clienteRepository.findById(idCliente)
                 .orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
 
-        // Verificar que el cliente haya comprado este producto
+        // ✨ VERIFICAR QUE EL CLIENTE HAYA COMPRADO ESTE PRODUCTO
         boolean haComprado = verificarCompraProducto(idCliente, dto.getIdProductoTienda());
         if (!haComprado) {
             throw new RuntimeException("Solo puedes valorar productos que hayas comprado");
         }
 
-        // Verificar que no haya valorado antes
         if (valoracionesRepository.existsByClienteAndProducto(idCliente, dto.getIdProductoTienda())) {
             throw new RuntimeException("Ya has valorado este producto");
         }
@@ -280,13 +276,103 @@ public class TiendaService {
         return valoraciones.stream().map(this::mapValoracionToDTO).collect(Collectors.toList());
     }
 
+    // ==================== PROMOCIONES: LISTAR VIGENTES ====================
+
+    public List<PromocionDTO> listarPromocionesVigentes() {
+        List<Promociones> promociones = promocionesRepository.findPromocionesVigentes(LocalDateTime.now());
+        return promociones.stream().map(this::mapPromocionToDTO).collect(Collectors.toList());
+    }
+
+    // ==================== HELPERS - PROMOCIONES ====================
+
+    private BigDecimal calcularPrecioConPromocion(ProductosTienda producto) {
+        BigDecimal precioOriginal = producto.getPrecioVentaTienda();
+        LocalDateTime ahora = LocalDateTime.now();
+
+        // 1. Buscar promoción específica del producto
+        Promociones promocionProducto = promocionesRepository
+                .findPromocionVigenteParaProducto(producto.getIdProductoTienda(), ahora)
+                .orElse(null);
+
+        if (promocionProducto != null) {
+            return aplicarDescuento(precioOriginal, promocionProducto);
+        }
+
+        // 2. Buscar promoción de la categoría
+        List<Promociones> promocionesCategoria = promocionesRepository
+                .findPromocionesVigentesParaCategoria(
+                        producto.getArticulo().getTipoArticulo().getIdTipoArticulo(),
+                        ahora
+                );
+
+        if (!promocionesCategoria.isEmpty()) {
+            return aplicarDescuento(precioOriginal, promocionesCategoria.get(0));
+        }
+
+        // 3. Buscar promoción general
+        List<Promociones> promocionesGenerales = promocionesRepository
+                .findPromocionesGeneralesVigentes(ahora);
+
+        if (!promocionesGenerales.isEmpty()) {
+            return aplicarDescuento(precioOriginal, promocionesGenerales.get(0));
+        }
+
+        return precioOriginal;
+    }
+
+    private BigDecimal aplicarDescuento(BigDecimal precioOriginal, Promociones promocion) {
+        if ("PORCENTAJE".equals(promocion.getTipoDescuento())) {
+            BigDecimal descuento = precioOriginal
+                    .multiply(promocion.getValorDescuento())
+                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+            return precioOriginal.subtract(descuento);
+        } else { // MONTO_FIJO
+            BigDecimal precioFinal = precioOriginal.subtract(promocion.getValorDescuento());
+            return precioFinal.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : precioFinal;
+        }
+    }
+
+    private Promociones obtenerMejorPromocion(ProductosTienda producto) {
+        LocalDateTime ahora = LocalDateTime.now();
+
+        // 1. Promoción específica
+        Promociones promocionProducto = promocionesRepository
+                .findPromocionVigenteParaProducto(producto.getIdProductoTienda(), ahora)
+                .orElse(null);
+
+        if (promocionProducto != null) {
+            return promocionProducto;
+        }
+
+        // 2. Promoción de categoría
+        List<Promociones> promocionesCategoria = promocionesRepository
+                .findPromocionesVigentesParaCategoria(
+                        producto.getArticulo().getTipoArticulo().getIdTipoArticulo(),
+                        ahora
+                );
+
+        if (!promocionesCategoria.isEmpty()) {
+            return promocionesCategoria.get(0);
+        }
+
+        // 3. Promoción general
+        List<Promociones> promocionesGenerales = promocionesRepository
+                .findPromocionesGeneralesVigentes(ahora);
+
+        if (!promocionesGenerales.isEmpty()) {
+            return promocionesGenerales.get(0);
+        }
+
+        return null;
+    }
+
     // ==================== HELPERS ====================
 
     private boolean verificarCompraProducto(Integer idCliente, Integer idProducto) {
         List<Pedidos> pedidos = pedidosRepository.findByClienteId(idCliente);
 
         for (Pedidos pedido : pedidos) {
-            if (pedido.getIdEstado() >= 20) { // Pagado o posterior
+            if (pedido.getIdEstado() >= 20) {
                 List<DetallePedido> detalles = detallePedidoRepository.findByPedidoId(pedido.getIdPedido());
                 for (DetallePedido detalle : detalles) {
                     if (detalle.getProductoTienda().getIdProductoTienda().equals(idProducto)) {
@@ -363,7 +449,23 @@ public class TiendaService {
 
         dto.setNombreProducto(p.getNombreEditado() != null ? p.getNombreEditado() : p.getArticulo().getNombreArticulo());
         dto.setDescripcion(p.getDescripcionEditada() != null ? p.getDescripcionEditada() : p.getArticulo().getDescripcion());
-        dto.setPrecioVentaTienda(p.getPrecioVentaTienda());
+
+        // ✨ PRECIOS CON PROMOCIÓN
+        BigDecimal precioOriginal = p.getPrecioVentaTienda();
+        BigDecimal precioConDescuento = calcularPrecioConPromocion(p);
+
+        dto.setPrecioOriginal(precioOriginal);
+        dto.setPrecioVentaTienda(precioConDescuento);
+        dto.setPrecioConDescuento(precioConDescuento);
+
+        // ✨ PROMOCIÓN ACTIVA
+        Promociones promocionActiva = obtenerMejorPromocion(p);
+        if (promocionActiva != null) {
+            PromocionDTO promocionDTO = mapPromocionToDTO(promocionActiva);
+            promocionDTO.setDescuentoAplicado(precioOriginal.subtract(precioConDescuento));
+            dto.setPromocionActiva(promocionDTO);
+        }
+
         dto.setTipoArticulo(p.getArticulo().getTipoArticulo().getNombreTipoArticulo());
         dto.setEstadoFisico(p.getArticulo().getEstadoArticulo());
         dto.setFechaPublicacion(p.getFechaPublicacion());
@@ -426,6 +528,19 @@ public class TiendaService {
         dto.setCalificacion(v.getCalificacion());
         dto.setComentario(v.getComentario());
         dto.setFechaValoracion(v.getFechaValoracion());
+
+        return dto;
+    }
+
+    private PromocionDTO mapPromocionToDTO(Promociones p) {
+        PromocionDTO dto = new PromocionDTO();
+        dto.setIdPromocion(p.getIdPromocion());
+        dto.setNombrePromocion(p.getNombrePromocion());
+        dto.setDescripcion(p.getDescripcion());
+        dto.setTipoDescuento(p.getTipoDescuento());
+        dto.setValorDescuento(p.getValorDescuento());
+        dto.setFechaInicio(p.getFechaInicio());
+        dto.setFechaFin(p.getFechaFin());
 
         return dto;
     }

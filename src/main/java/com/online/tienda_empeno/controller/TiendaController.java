@@ -278,4 +278,16 @@ public class TiendaController {
                     .body(Map.of("error", e.getMessage()));
         }
     }
+    // ==================== VER PROMOCIONES VIGENTES ====================
+
+    @GetMapping("/promociones")
+    public ResponseEntity<?> verPromocionesVigentes() {
+        try {
+            List<PromocionDTO> promociones = tiendaService.listarPromocionesVigentes();
+            return ResponseEntity.ok(promociones);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
 }
