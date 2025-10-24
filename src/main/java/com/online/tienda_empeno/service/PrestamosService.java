@@ -278,9 +278,14 @@ public class PrestamosService {
         dto.setNombreEstado(obtenerNombreEstado(p.getIdEstado()));
         dto.setTasaInteres(p.getTasaInteres());
         dto.setMontoPrestamo(p.getMontoPrestamo());
-        dto.setSaldoAdeudado(p.getSaldoAdeudado()); // ✨ AGREGAR ESTA LÍNEA
+        dto.setSaldoAdeudado(p.getSaldoAdeudado());
         dto.setPorcentajeAvaluo(p.getPorcentajeAvaluo());
         dto.setPlazoMeses(p.getPlazoMeses());
+
+        // Calcular cuota mensual con redondeo correcto (2 decimales)
+        BigDecimal cuotaMensual = p.getSaldoAdeudado()
+                .divide(BigDecimal.valueOf(p.getPlazoMeses()), 2, RoundingMode.HALF_UP);
+        dto.setCuotaMensual(cuotaMensual);
         dto.setFechaInicio(p.getFechaInicio());
         dto.setFechaVencimiento(p.getFechaVencimiento());
         dto.setPrecioArticulo(p.getArticulo().getPrecioArticulo());

@@ -143,6 +143,12 @@ public class ClienteService {
         return cliente == null; // true si está disponible, false si ya existe
     }
 
+    public ClienteDetalleDTO obtenerClienteDetalle(Integer idCliente) {
+        Cliente cliente = clienteRepository.findById(idCliente)
+                .orElseThrow(() -> new RuntimeException("Cliente no encontrado con id " + idCliente));
+        return mapClienteDetalle(cliente);
+    }
+
     private DireccionResponseDTO mapDireccionToDto(Direcciones d) {
         DireccionResponseDTO dto = new DireccionResponseDTO();
         dto.setIdDireccion(d.getIdDireccion());
@@ -169,6 +175,49 @@ public class ClienteService {
 
         if (c.getDireccion() != null) {
             dto.setDireccion(mapDireccionToDto(c.getDireccion()));
+        }
+
+        return dto;
+    }
+
+    private ClienteDetalleDTO mapClienteDetalle(Cliente cliente) {
+        ClienteDetalleDTO dto = new ClienteDetalleDTO();
+        dto.setIdCliente(cliente.getIdCliente());
+        dto.setNombreCliente(cliente.getNombreCliente());
+        dto.setApellidoCliente(cliente.getApellidoCliente());
+        dto.setEmailCliente(cliente.getEmailCliente());
+        dto.setNumeroDocumento(cliente.getNumeroDocumento());
+
+        if (cliente.getTipoDocumento() != null) {
+            dto.setTipoDocumento(cliente.getTipoDocumento().getNombre());
+        }
+
+        Direcciones direccion = cliente.getDireccion();
+        if (direccion != null) {
+            DireccionDetalleDTO direccionDto = new DireccionDetalleDTO();
+            direccionDto.setIdDireccion(direccion.getIdDireccion());
+            direccionDto.setDireccionCliente(direccion.getDireccionCliente());
+            direccionDto.setCodigoPostal(direccion.getCodigoPostal());
+
+            Ciudad ciudad = direccion.getCiudad();
+            if (ciudad != null) {
+                direccionDto.setIdCiudad(ciudad.getIdCiudad());
+                direccionDto.setNombreCiudad(ciudad.getNombreCiudad());
+
+                Departamento departamento = ciudad.getDepartamento();
+                if (departamento != null) {
+                    direccionDto.setIdDepartamento(departamento.getIdDepartamento());
+                    direccionDto.setNombreDepartamento(departamento.getNombreDepartamento());
+
+                    Pais pais = departamento.getPais();
+                    if (pais != null) {
+                        direccionDto.setIdPais(pais.getIdPais());
+                        direccionDto.setNombrePais(pais.getNombrePais());
+                    }
+                }
+            }
+
+            dto.setDireccion(direccionDto);
         }
 
         return dto;

@@ -445,6 +445,7 @@ public class ContratosYPagosService {
         dto.setDocumentoContrato(c.getDocumentoContrato());
         dto.setNombreCliente(c.getPrestamo().getCliente().getNombreCliente() + " " + c.getPrestamo().getCliente().getApellidoCliente());
         dto.setEmailCliente(c.getPrestamo().getCliente().getEmailCliente());
+        dto.setDpiCliente(c.getPrestamo().getCliente().getNumeroDocumento());
         return dto;
     }
 

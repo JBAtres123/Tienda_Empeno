@@ -20,15 +20,24 @@ public class ContratoResponseDTO {
     private String documentoContrato;
     private String nombreCliente;
     private String emailCliente;
-    private BigDecimal saldoAdeudado; // ✨ AGREGAR
+    private String dpiCliente;
+    private BigDecimal saldoAdeudado;
 
-    // Getter y Setter
+    // Getters y Setters adicionales
     public BigDecimal getSaldoAdeudado() {
         return saldoAdeudado;
     }
 
     public void setSaldoAdeudado(BigDecimal saldoAdeudado) {
         this.saldoAdeudado = saldoAdeudado;
+    }
+
+    public String getDpiCliente() {
+        return dpiCliente;
+    }
+
+    public void setDpiCliente(String dpiCliente) {
+        this.dpiCliente = dpiCliente;
     }
 
     // Getters y Setters

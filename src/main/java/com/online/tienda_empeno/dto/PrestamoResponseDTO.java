@@ -23,6 +23,7 @@ public class PrestamoResponseDTO {
     private BigDecimal precioArticulo;
     private BigDecimal precioAvaluo;
     private BigDecimal saldoAdeudado;
+    private BigDecimal cuotaMensual;  // Cuota mensual calculada con redondeo correcto
     private String urlImagen;  // Primera imagen (compatibilidad)
     private List<String> imagenes;  // Todas las imágenes
     private String descripcionArticulo;
@@ -33,6 +34,14 @@ public class PrestamoResponseDTO {
 
     public void setSaldoAdeudado(BigDecimal saldoAdeudado) {
         this.saldoAdeudado = saldoAdeudado;
+    }
+
+    public BigDecimal getCuotaMensual() {
+        return cuotaMensual;
+    }
+
+    public void setCuotaMensual(BigDecimal cuotaMensual) {
+        this.cuotaMensual = cuotaMensual;
     }
 
     // Getters y Setters

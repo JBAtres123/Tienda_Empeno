@@ -16,7 +16,7 @@ public class ClienteController {
         this.clienteService = clienteService;
     }
 
-    // ---------------- Registrar dirección ----------------
+    // ---------------- Registrar direccion ----------------
     @PostMapping("/direccion")
     public ResponseEntity<DireccionResponseDTO> registrarDireccion(@RequestBody DireccionDTO direccionDTO) {
         DireccionResponseDTO direccion = clienteService.registrarDireccion(direccionDTO);
@@ -47,4 +47,11 @@ public class ClienteController {
         boolean disponible = clienteService.validarEmailDisponibilidad(email);
         return ResponseEntity.ok(java.util.Map.of("disponible", disponible));
     }
+    // ---------------- Obtener cliente por ID ----------------
+    @GetMapping("/{idCliente}")
+    public ResponseEntity<ClienteDetalleDTO> obtenerClientePorId(@PathVariable Integer idCliente) {
+        ClienteDetalleDTO cliente = clienteService.obtenerClienteDetalle(idCliente);
+        return ResponseEntity.ok(cliente);
+    }
 }
+
