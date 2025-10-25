@@ -237,17 +237,17 @@ public class ClienteService {
         }
 
         // 3. Validar que la nueva contraseña sea diferente
-        if (dto.getContraseniaActual().equals(dto.getContraseñaNueva())) {
+        if (dto.getContraseniaActual().equals(dto.getContraseniaNueva())) {
             throw new RuntimeException("La nueva contraseña debe ser diferente a la actual");
         }
 
         // 4. Validar longitud de la nueva contraseña
-        if (dto.getContraseñaNueva() == null || dto.getContraseñaNueva().length() < 6) {
+        if (dto.getContraseniaNueva() == null || dto.getContraseniaNueva().length() < 6) {
             throw new RuntimeException("La nueva contraseña debe tener al menos 6 caracteres");
         }
 
         // 5. Actualizar contraseña
-        contraseniaActual.setContraseña(dto.getContraseñaNueva());
+        contraseniaActual.setContraseña(dto.getContraseniaNueva());
         contraseniaActual.setFechaCreacion(new Date());
         contraseniaRepository.save(contraseniaActual);
     }

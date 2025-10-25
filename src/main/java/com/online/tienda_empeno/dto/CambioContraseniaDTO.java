@@ -8,11 +8,11 @@ public class CambioContraseniaDTO {
         return contraseniaActual;
     }
 
-    public void setContraseñaActual(String contraseniaActual) {
+    public void setContraseniaActual(String contraseniaActual) {
         this.contraseniaActual = contraseniaActual;
     }
 
-    public String getContraseñaNueva() {
+    public String getContraseniaNueva() {
         return contraseniaNueva;
     }
 
