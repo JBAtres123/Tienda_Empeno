@@ -10,7 +10,7 @@ import org.springframework.stereotype.Repository;
 public interface AdministradorRepository extends JpaRepository<Administradores, Integer> {
 
     // Buscar administrador por email y contraseña en texto usando la relación con Contraseña
-    @Query("SELECT a FROM Administradores a JOIN Contraseña c ON a.idContraseña = c.idContraseña " +
+    @Query("SELECT a FROM Administradores a JOIN Contrasenia c ON a.idContraseña = c.idContraseña " +
             "WHERE a.emailAdmin = :email AND c.contraseña = :password")
     Administradores findByEmailAndPassword(@Param("email") String email, @Param("password") String password);
 }

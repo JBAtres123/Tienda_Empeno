@@ -20,7 +20,7 @@ public class Cliente {
 
     @ManyToOne
     @JoinColumn(name = "id_contraseña_cliente", nullable = false)
-    private Contraseña contraseña;
+    private Contrasenia contrasenia;
 
     @ManyToOne
     @JoinColumn(name = "id_tipo_usuario", nullable = false)
@@ -51,8 +51,8 @@ public class Cliente {
     public TipoDeDocumento getTipoDocumento() { return tipoDocumento; }
     public void setTipoDocumento(TipoDeDocumento tipoDocumento) { this.tipoDocumento = tipoDocumento; }
 
-    public Contraseña getContraseña() { return contraseña; }
-    public void setContraseña(Contraseña contraseña) { this.contraseña = contraseña; }
+    public Contrasenia getContraseña() { return contrasenia; }
+    public void setContraseña(Contrasenia contrasenia) { this.contrasenia = contrasenia; }
 
     public TipoUsuario getTipoUsuario() { return tipoUsuario; }
     public void setTipoUsuario(TipoUsuario tipoUsuario) { this.tipoUsuario = tipoUsuario; }

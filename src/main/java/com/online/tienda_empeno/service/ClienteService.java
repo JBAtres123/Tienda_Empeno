@@ -16,7 +16,7 @@ public class ClienteService {
     private final ClienteRepository clienteRepository;
     private final AdministradorRepository administradorRepository;
     private final TipoDeDocumentoRepository tipoDeDocumentoRepository;
-    private final ContraseñaRepository contraseñaRepository;
+    private final ContraseñiaRepository contraseñiaRepository;
     private final TipoUsuarioRepository tipoUsuarioRepository;
     private final JwtUtil jwtUtil;
 
@@ -25,7 +25,7 @@ public class ClienteService {
                           ClienteRepository clienteRepository,
                           AdministradorRepository administradorRepository,
                           TipoDeDocumentoRepository tipoDeDocumentoRepository,
-                          ContraseñaRepository contraseñaRepository,
+                          ContraseñiaRepository contraseñiaRepository,
                           TipoUsuarioRepository tipoUsuarioRepository,
                           JwtUtil jwtUtil) {
         this.direccionesRepository = direccionesRepository;
@@ -33,7 +33,7 @@ public class ClienteService {
         this.clienteRepository = clienteRepository;
         this.administradorRepository = administradorRepository;
         this.tipoDeDocumentoRepository = tipoDeDocumentoRepository;
-        this.contraseñaRepository = contraseñaRepository;
+        this.contraseñiaRepository = contraseñiaRepository;
         this.tipoUsuarioRepository = tipoUsuarioRepository;
         this.jwtUtil = jwtUtil;
     }
@@ -58,11 +58,11 @@ public class ClienteService {
         TipoUsuario tipoUsuario = tipoUsuarioRepository.findById(1)
                 .orElseThrow(() -> new RuntimeException("Tipo usuario Cliente no encontrado"));
 
-        Contraseña contraseña = new Contraseña();
-        contraseña.setTipoUsuario(tipoUsuario);
-        contraseña.setContraseña(dto.getContraseña());
-        contraseña.setFechaCreacion(new Date());
-        contraseña = contraseñaRepository.save(contraseña);
+        Contrasenia contrasenia = new Contrasenia();
+        contrasenia.setTipoUsuario(tipoUsuario);
+        contrasenia.setContraseña(dto.getContraseña());
+        contrasenia.setFechaCreacion(new Date());
+        contrasenia = contraseñiaRepository.save(contrasenia);
 
         Direcciones direccion = null;
         if (dto.getIdDireccion() != null) {
@@ -73,7 +73,7 @@ public class ClienteService {
         Cliente cliente = new Cliente();
         cliente.setDireccion(direccion);
         cliente.setTipoDocumento(tipoDoc);
-        cliente.setContraseña(contraseña);
+        cliente.setContraseña(contrasenia);
         cliente.setTipoUsuario(tipoUsuario);
         cliente.setNumeroDocumento(dto.getNumeroDocumento());
         cliente.setNombreCliente(dto.getNombreCliente());
@@ -231,8 +231,8 @@ public class ClienteService {
                 .orElseThrow(() -> new RuntimeException("Cliente no encontrado con id " + idCliente));
 
         // 2. Verificar contraseña actual
-        Contraseña contraseñaActual = cliente.getContraseña();
-        if (contraseñaActual == null || !contraseñaActual.getContraseña().equals(dto.getContraseñaActual())) {
+        Contrasenia contraseniaActual = cliente.getContraseña();
+        if (contraseniaActual == null || !contraseniaActual.getContraseña().equals(dto.getContraseñaActual())) {
             throw new RuntimeException("La contraseña actual no es correcta");
         }
 
@@ -247,8 +247,8 @@ public class ClienteService {
         }
 
         // 5. Actualizar contraseña
-        contraseñaActual.setContraseña(dto.getContraseñaNueva());
-        contraseñaActual.setFechaCreacion(new Date());
-        contraseñaRepository.save(contraseñaActual);
+        contraseniaActual.setContraseña(dto.getContraseñaNueva());
+        contraseniaActual.setFechaCreacion(new Date());
+        contraseñiaRepository.save(contraseniaActual);
     }
 }
