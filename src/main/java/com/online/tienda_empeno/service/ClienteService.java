@@ -16,7 +16,7 @@ public class ClienteService {
     private final ClienteRepository clienteRepository;
     private final AdministradorRepository administradorRepository;
     private final TipoDeDocumentoRepository tipoDeDocumentoRepository;
-    private final ContraseñiaRepository contraseñiaRepository;
+    private final ContraseniaRepository contraseniaRepository;
     private final TipoUsuarioRepository tipoUsuarioRepository;
     private final JwtUtil jwtUtil;
 
@@ -25,7 +25,7 @@ public class ClienteService {
                           ClienteRepository clienteRepository,
                           AdministradorRepository administradorRepository,
                           TipoDeDocumentoRepository tipoDeDocumentoRepository,
-                          ContraseñiaRepository contraseñiaRepository,
+                          ContraseniaRepository contraseniaRepository,
                           TipoUsuarioRepository tipoUsuarioRepository,
                           JwtUtil jwtUtil) {
         this.direccionesRepository = direccionesRepository;
@@ -33,7 +33,7 @@ public class ClienteService {
         this.clienteRepository = clienteRepository;
         this.administradorRepository = administradorRepository;
         this.tipoDeDocumentoRepository = tipoDeDocumentoRepository;
-        this.contraseñiaRepository = contraseñiaRepository;
+        this.contraseniaRepository = contraseniaRepository;
         this.tipoUsuarioRepository = tipoUsuarioRepository;
         this.jwtUtil = jwtUtil;
     }
@@ -62,7 +62,7 @@ public class ClienteService {
         contrasenia.setTipoUsuario(tipoUsuario);
         contrasenia.setContraseña(dto.getContraseña());
         contrasenia.setFechaCreacion(new Date());
-        contrasenia = contraseñiaRepository.save(contrasenia);
+        contrasenia = contraseniaRepository.save(contrasenia);
 
         Direcciones direccion = null;
         if (dto.getIdDireccion() != null) {
@@ -249,6 +249,6 @@ public class ClienteService {
         // 5. Actualizar contraseña
         contraseniaActual.setContraseña(dto.getContraseñaNueva());
         contraseniaActual.setFechaCreacion(new Date());
-        contraseñiaRepository.save(contraseniaActual);
+        contraseniaRepository.save(contraseniaActual);
     }
 }
