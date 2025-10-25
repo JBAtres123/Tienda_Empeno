@@ -58,7 +58,7 @@ public class ClienteController {
     @PutMapping("/{idCliente}/cambiar-contraseña")
     public ResponseEntity<java.util.Map<String, String>> cambiarContraseña(
             @PathVariable Integer idCliente,
-            @RequestBody CambioContraseñaDTO dto) {
+            @RequestBody CambioContraseniaDTO dto) {
         try {
             clienteService.cambiarContraseña(idCliente, dto);
             return ResponseEntity.ok(java.util.Map.of("message", "Contraseña actualizada correctamente"));

@@ -225,19 +225,19 @@ public class ClienteService {
         return dto;
     }
 
-    public void cambiarContraseña(Integer idCliente, CambioContraseñaDTO dto) {
+    public void cambiarContraseña(Integer idCliente, CambioContraseniaDTO dto) {
         // 1. Buscar cliente por id
         Cliente cliente = clienteRepository.findById(idCliente)
                 .orElseThrow(() -> new RuntimeException("Cliente no encontrado con id " + idCliente));
 
         // 2. Verificar contraseña actual
         Contrasenia contraseniaActual = cliente.getContraseña();
-        if (contraseniaActual == null || !contraseniaActual.getContraseña().equals(dto.getContraseñaActual())) {
+        if (contraseniaActual == null || !contraseniaActual.getContraseña().equals(dto.getContraseniaActual())) {
             throw new RuntimeException("La contraseña actual no es correcta");
         }
 
         // 3. Validar que la nueva contraseña sea diferente
-        if (dto.getContraseñaActual().equals(dto.getContraseñaNueva())) {
+        if (dto.getContraseniaActual().equals(dto.getContraseñaNueva())) {
             throw new RuntimeException("La nueva contraseña debe ser diferente a la actual");
         }
 
