@@ -282,10 +282,19 @@ public class PrestamosService {
         dto.setPorcentajeAvaluo(p.getPorcentajeAvaluo());
         dto.setPlazoMeses(p.getPlazoMeses());
 
-        // Calcular cuota mensual con redondeo correcto (2 decimales)
-        BigDecimal cuotaMensual = p.getSaldoAdeudado()
-                .divide(BigDecimal.valueOf(p.getPlazoMeses()), 2, RoundingMode.HALF_UP);
-        dto.setCuotaMensual(cuotaMensual);
+        // Calcular cuota mensual fija basada en el monto total original con intereses
+        if (p.getPlazoMeses() != null && p.getMontoPrestamo() != null && p.getTasaInteres() != null) {
+            // Calcular monto total original (monto prestado + intereses totales)
+            BigDecimal montoTotalOriginal = p.getMontoPrestamo()
+                    .multiply(BigDecimal.ONE.add(p.getTasaInteres()
+                            .multiply(BigDecimal.valueOf(p.getPlazoMeses()))
+                            .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)));
+
+            // Cuota mensual fija = monto total / plazo en meses
+            BigDecimal cuotaMensual = montoTotalOriginal
+                    .divide(BigDecimal.valueOf(p.getPlazoMeses()), 2, RoundingMode.HALF_UP);
+            dto.setCuotaMensual(cuotaMensual);
+        }
         dto.setFechaInicio(p.getFechaInicio());
         dto.setFechaVencimiento(p.getFechaVencimiento());
         dto.setPrecioArticulo(p.getArticulo().getPrecioArticulo());
